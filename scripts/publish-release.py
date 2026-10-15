@@ -33,8 +33,13 @@ def main():
     if existing and not existing['draft']:
         raise ValueError('Refusing to overwrite a published release; increment revision')
     if existing:
-        ref = github('repos/{}/git/ref/tags/{}'.format(repo, tag))['object']
-        if ref['type'] != 'commit' or ref['sha'] != plan['source_revision']:
+        ref = github('repos/{}/git/ref/tags/{}'.format(repo, tag), missing_ok=True)
+        # GitHub may defer creating a new tag until a draft is published.
+        same_source = (ref is not None and ref['object']['type'] == 'commit'
+                       and ref['object']['sha'] == plan['source_revision'])
+        if ref is None:
+            same_source = existing['target_commitish'] == plan['source_revision']
+        if not same_source:
             raise ValueError('Draft release has a different source commit; increment revision')
         gh('release', 'upload', tag, '--repo', repo, '--clobber', *[str(directory / name) for name in sorted(expected)])
         gh('release', 'edit', tag, '--repo', repo, '--notes-file', args.notes)

@@ -27,7 +27,10 @@ Windows는 공식 Win32 빌드 절차를 따르며 Git Bash를 configure 셸로 
 OpenSSL은 두 Linux CPU에서 네이티브 최적화를 사용하고 Windows에서는 no-asm을 사용합니다.
 
 Linux는 `file`, `readelf`, `ldd` 진단과 별도 ELF 파서로 완전 정적 링크와 ELF 머신을
-검사합니다. PT_INTERP와 PT_DYNAMIC을 모두 금지합니다. Windows는 PE AMD64와
+검사합니다. PT_INTERP와 DT_NEEDED 등 외부 DSO 의존성을 금지합니다.
+정적 PIE의 자체 재배치를 위한 PT_DYNAMIC은 공유 라이브러리 의존성을 뜻하지 않으므로
+허용하되 각 항목을 파싱하여 의존성이 없는지 검사합니다.
+[GCC 정적 PIE 설명](https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html)을 참고하세요. Windows는 PE AMD64와
 `dumpbin /dependents`로 비시스템 DLL 의존성을 차단하고 MSVC 정적 CRT를 사용합니다.
 OpenSSL의 외부 모듈/DSO 로딩은 비활성화합니다.
 

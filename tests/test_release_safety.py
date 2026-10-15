@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import struct
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -92,6 +93,11 @@ class UpstreamSafety(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify_plan(plan)
 
+    def test_windows_configure_arguments_have_no_cr(self):
+        output = subprocess.check_output([sys.executable, str(ROOT/'scripts/configure-options.py'), '--platform', 'windows'])
+        self.assertNotIn(b'\r', output)
+        self.assertIn(b'--with-http_ssl_module\n', output)
+
 class SourceSafety(unittest.TestCase):
     def archive(self, name, kind=None):
         data = io.BytesIO()
@@ -129,6 +135,22 @@ class SourceSafety(unittest.TestCase):
             self.assertTrue(packager.binary_identity(binary, 'linux-arm64')['fully_static'])
             with self.assertRaises(ValueError):
                 packager.binary_identity(binary, 'linux-amd64')
+
+    def test_static_pie_relocations_allowed_but_needed_dso_rejected(self):
+        data = bytearray(elf(183) + bytes(32))
+        struct.pack_into('<HH', data, 54, 56, 1)
+        struct.pack_into('<I', data, 64, 2)  # PT_DYNAMIC
+        struct.pack_into('<Q', data, 72, 120)
+        struct.pack_into('<Q', data, 96, 32)
+        struct.pack_into('<qQ', data, 120, 7, 0)  # DT_RELA, no DT_NEEDED
+        with tempfile.TemporaryDirectory() as temp:
+            binary=Path(temp)/'nginx'
+            binary.write_bytes(data)
+            self.assertTrue(packager.binary_identity(binary,'linux-arm64')['fully_static'])
+            struct.pack_into('<qQ',data,120,1,0)  # DT_NEEDED
+            binary.write_bytes(data)
+            with self.assertRaises(ValueError):
+                packager.binary_identity(binary,'linux-arm64')
             binary.write_bytes(elf(62, True))
             with self.assertRaises(ValueError):
                 packager.binary_identity(binary, 'linux-amd64')

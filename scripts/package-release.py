@@ -26,11 +26,23 @@ def binary_identity(path, target):
             raise ValueError('Wrong ELF architecture')
         phoff = struct.unpack_from('<Q', data, 32)[0]
         phsize, phnum = struct.unpack_from('<HH', data, 54)
+        if phsize < 56 or phoff + phsize * phnum > len(data):
+            raise ValueError('Malformed ELF program headers')
         for index in range(phnum):
-            segment = struct.unpack_from('<I', data, phoff + index * phsize)[0]
-            if segment in (2, 3):
-                # Reject PT_DYNAMIC as well as PT_INTERP: intentionally stricter than NEEDED only.
-                raise ValueError('ELF must have no dynamic loader or dynamic segment')
+            header = phoff + index * phsize
+            segment = struct.unpack_from('<I', data, header)[0]
+            if segment == 3:
+                raise ValueError('ELF must have no dynamic loader (PT_INTERP)')
+            if segment == 2:
+                # Static PIE contains relocation metadata but needs no loader or DSOs.
+                offset = struct.unpack_from('<Q', data, header + 8)[0]
+                size = struct.unpack_from('<Q', data, header + 32)[0]
+                if size % 16 or offset + size > len(data):
+                    raise ValueError('Malformed ELF dynamic segment')
+                for entry in range(offset, offset + size, 16):
+                    tag = struct.unpack_from('<q', data, entry)[0]
+                    if tag in (1, 0x7fffffff, 0x7ffffffd, 0x6ffffefb, 0x6ffffefc):
+                        raise ValueError('ELF requires a shared library or audit DSO')
         return dict(format='ELF64', machine=machine, fully_static=True)
     if data[:2] != b'MZ':
         raise ValueError('Expected native PE executable')
