@@ -1,0 +1,42 @@
+name: Resume verified publication
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Completed release workflow run with a successful gate and verified-release artifact
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    concurrency:
+      group: nginxforge-publish-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test publication controls
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: verified-release
+          path: build/candidate
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - name: Revalidate original gate and exact verified candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: python3 scripts/recheck-verified.py --run-id "$SOURCE_RUN"
+      - name: Publish verified candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish-release.py

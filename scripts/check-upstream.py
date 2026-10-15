@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import os
 import re
-from common import ROOT, canonical_digest, download, github, load, official_commit, sha256, write
+from common import ROOT, canonical_digest, download, find_release, github, load, official_commit, sha256, write
 
 def latest_version(page, channel):
     heading = 'Stable' if channel == 'stable' else 'Mainline'
@@ -37,7 +37,7 @@ def main():
     if revision < 1:
         raise ValueError('Revision must be positive')
     tag = 'v{}-r{}'.format(version, revision)
-    existing = github('repos/{}/releases/tags/{}'.format(args.repository, tag), missing_ok=True)
+    existing = find_release(args.repository, tag)
     published = existing is not None and not existing['draft']
     # A tag without a release must never be silently moved.
     tag_ref = github('repos/{}/git/ref/tags/{}'.format(args.repository, tag), missing_ok=True)

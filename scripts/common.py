@@ -64,6 +64,23 @@ def official_commit(version):
         obj = github('repos/nginx/nginx/git/tags/' + obj['sha'])['object']
     raise ValueError('Official release tag does not resolve to a commit')
 
+def find_release(repository, tag):
+    """The tag endpoint only finds published releases; drafts require the list API."""
+    release = github('repos/{}/releases/tags/{}'.format(repository, tag), missing_ok=True)
+    if release is not None:
+        return release
+    page = 1
+    while True:
+        releases = github('repos/{}/releases?per_page=100&page={}'.format(repository, page))
+        matches = [item for item in releases if item['tag_name'] == tag]
+        if len(matches) > 1:
+            raise ValueError('Duplicate draft release tags require review')
+        if matches:
+            return matches[0]
+        if len(releases) < 100:
+            return None
+        page += 1
+
 def archive_version(plan):
     revision = plan['revision']
     return plan['nginx']['version'] + ('' if revision == 1 else '-r' + str(revision))

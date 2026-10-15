@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
-from common import asset_name, github, load, sha256
+from common import asset_name, find_release, github, load, sha256
 
 def gh(*args):
     subprocess.run(['gh'] + list(args), check=True)
@@ -29,7 +29,7 @@ def main():
         digest, name = line.split('  ', 1)
         if name not in expected - {'SHA256SUMS.txt'} or sha256(directory / name) != digest:
             raise ValueError('Release checksum mismatch')
-    existing = github('repos/{}/releases/tags/{}'.format(repo, tag), missing_ok=True)
+    existing = find_release(repo, tag)
     if existing and not existing['draft']:
         raise ValueError('Refusing to overwrite a published release; increment revision')
     if existing:
@@ -48,7 +48,10 @@ def main():
            '--title', 'NginxForge ' + tag, '--notes-file', args.notes,
            *[str(directory / name) for name in sorted(expected)])
     # API verification uses the draft release ID: download the actual uploaded bytes.
-    release = github('repos/{}/releases/tags/{}'.format(repo, tag))
+    release = find_release(repo, tag)
+    if release is None or not release['draft']:
+        raise ValueError('Expected a staged draft release')
+    release = github('repos/{}/releases/{}'.format(repo, release['id']))
     if {item['name'] for item in release['assets']} != expected:
         raise ValueError('Uploaded asset set mismatch; draft retained')
     with tempfile.TemporaryDirectory(prefix='nginxforge-upload-') as temp:

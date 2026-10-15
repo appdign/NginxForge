@@ -22,6 +22,14 @@ Windows 검증 중 하나라도 실패·누락되면 모든 플랫폼의 정식 
 실패 시 기존 Latest를 유지하며 업로드 실패는 draft 상태에 남습니다.
 동일 소스 commit의 draft만 재개할 수 있습니다. 다른 소스이면 revision을 올립니다.
 
+빌드·검증이 성공하고 업로드/발행만 실패한 경우 Actions의 **Resume verified publication**에
+원래 run ID를 지정할 수 있습니다. 이 작업은 같은 저장소의 완료된 release workflow에서
+실제로 전체 게이트가 성공했는지 확인합니다. `verified-release` artifact의 원래 소스 commit,
+9개 증거, 바이너리 및 패키지 해시를 다시 검증하고 재생성 결과가 원본과 바이트 단위로
+같을 때만 발행합니다. 현재 build config/patch/의존성이 원래 계획과 달라졌으면 거부합니다.
+새로 빌드하거나 기존 결과를 다른 소스 commit의 결과로 바꾸지 않습니다.
+draft는 태그별 조회 API에서 404가 될 수 있으므로 전체 Releases 목록에서 찾아 ID로 조회합니다.
+
 Stable의 전체 통과 릴리즈만 Latest 후보입니다. 과거 버전의 수동 빌드가 더 최신인
 기존 Latest를 내리지 않도록 숫자 버전/리비전을 비교합니다. Mainline은 prerelease로
 발행하고 Latest로 지정하지 않습니다. 동시 발행은 저장소 단위 concurrency로 직렬화합니다.

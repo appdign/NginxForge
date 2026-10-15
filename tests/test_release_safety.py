@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from common import canonical_digest, github, load, sha256, write, asset_name, verify_plan
+from common import canonical_digest, find_release, github, load, sha256, write, asset_name, verify_plan
 
 def module(name):
     spec = importlib.util.spec_from_file_location(name.replace('-', '_'), str(ROOT / 'scripts' / (name + '.py')))
@@ -30,6 +30,7 @@ fetch = module('fetch-sources')
 patcher = module('apply-patches')
 gate = module('gate-release')
 packager = module('package-release')
+recheck = module('recheck-verified')
 
 def plan_fixture():
     plan = dict(schema=1, repository='example/NginxForge', source_revision='a'*40,
@@ -98,6 +99,22 @@ class UpstreamSafety(unittest.TestCase):
         self.assertNotIn(b'\r', output)
         self.assertIn(b'--with-http_ssl_module\n', output)
 
+    def test_draft_release_is_found_when_tag_endpoint_returns_404(self):
+        draft = dict(id=12,tag_name='v1.30.6-r1',draft=True)
+        with patch('common.github',side_effect=[None,[draft]]) as api:
+            self.assertEqual(find_release('example/repo','v1.30.6-r1'),draft)
+            self.assertIn('releases?per_page=100&page=1',api.call_args[0][0])
+
+    def test_draft_search_paginates(self):
+        draft=dict(id=12,tag_name='target',draft=True)
+        page=[dict(tag_name='other-'+str(n)) for n in range(100)]
+        with patch('common.github',side_effect=[None,page,[draft]]):
+            self.assertEqual(find_release('example/repo','target'),draft)
+
+    def test_draft_lookup_error_is_not_missing(self):
+        with patch('common.github',side_effect=[None,RuntimeError('network')]):
+            with self.assertRaises(RuntimeError): find_release('example/repo','target')
+
 class SourceSafety(unittest.TestCase):
     def archive(self, name, kind=None):
         data = io.BytesIO()
@@ -165,6 +182,29 @@ class SourceSafety(unittest.TestCase):
             self.assertEqual(source.read_text(), 'keep\n')
             with self.assertRaises(ValueError):
                 patcher.apply(temp, patch_file)
+
+class PublicationRecovery(unittest.TestCase):
+    def fixture(self):
+        plan=plan_fixture()
+        run=dict(repository=dict(full_name=plan['repository']),head_sha=plan['source_revision'],
+                 status='completed',path='.github/workflows/release.yml')
+        jobs=[dict(name='release',steps=[dict(name='Enforce complete architecture and OS evidence',conclusion='success')])]
+        return plan,run,jobs
+
+    def test_original_gate_and_commit_are_required(self):
+        plan,run,jobs=self.fixture()
+        recheck.verify_origin(run,jobs,plan,plan['repository'])
+        for field,value in [('head_sha','other'),('status','in_progress'),('path','other.yml')]:
+            bad=copy.deepcopy(run); bad[field]=value
+            with self.subTest(field=field),self.assertRaises(ValueError):
+                recheck.verify_origin(bad,jobs,plan,plan['repository'])
+
+    def test_failed_gate_and_cross_repository_are_rejected(self):
+        plan,run,jobs=self.fixture()
+        jobs[0]['steps'][0]['conclusion']='failure'
+        with self.assertRaises(ValueError): recheck.verify_origin(run,jobs,plan,plan['repository'])
+        plan,run,jobs=self.fixture()
+        with self.assertRaises(ValueError): recheck.verify_origin(run,jobs,plan,'different/repo')
 
 class ReleaseGate(unittest.TestCase):
     def setUp(self):
