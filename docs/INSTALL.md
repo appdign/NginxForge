@@ -24,6 +24,10 @@ sudo /opt/nginxforge/sbin/nginx
 기본 prefix는 `/opt/nginxforge`, 설정은 `conf/nginx.conf`입니다. `-p`와 `-c`로
 고정 경로를 명시할 수 있습니다. 프로세스 사용자에게 로그·temp 디렉터리 권한을 부여하고,
 운영에서는 전용 비특권 사용자와 조직의 systemd/SELinux 정책을 적용하세요.
+root로 기동할 때의 기본 worker 계정은 두 Linux 배포판에 공통으로 존재하는 `daemon:daemon`입니다.
+운영 전용 계정을 만들었다면 기존 설정의 `user <사용자> <그룹>;`으로 명시하세요.
+기존의 명시적 user 설정은 이 빌드 기본값보다 우선합니다. 비특권 계정으로 직접 기동하면
+현재 계정을 사용합니다.
 HTTPS 인증서와 키는 별도로 관리합니다. 컨테이너·컴파일러·추가 libc 설치는 필요하지 않습니다.
 
 ## Windows Server 2022 AMD64

@@ -52,7 +52,9 @@
       "--lock-path=logs/nginx.lock",
       "--with-openssl-opt=no-shared no-tests no-module no-dso",
       "--with-cc-opt=-O2 -fstack-protector-strong",
-      "--with-ld-opt=-static -Wl,--build-id=sha1"
+      "--with-ld-opt=-static -Wl,--build-id=sha1",
+      "--user=daemon",
+      "--group=daemon"
     ],
     "windows": [
       "--with-cc=cl",

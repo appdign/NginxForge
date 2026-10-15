@@ -25,6 +25,9 @@
 대체하여 릴리즈하지 않습니다. 공개 저장소의 표준 ARM64 Runner를 사용합니다.
 Windows는 공식 Win32 빌드 절차를 따르며 Git Bash를 configure 셸로 사용합니다.
 OpenSSL은 두 Linux CPU에서 네이티브 최적화를 사용하고 Windows에서는 no-asm을 사용합니다.
+Linux 기본 worker 계정은 `daemon:daemon`으로 명시하여 Alpine의 빌드 시 계정 자동 감지가
+Ubuntu/Rocky 런타임의 그룹 이름 차이로 이어지지 않게 합니다. 운영에서는 전용 계정을
+설정하고, 기존 nginx.conf의 user 지시문은 그대로 우선합니다.
 
 Linux는 `file`, `readelf`, `ldd` 진단과 별도 ELF 파서로 완전 정적 링크와 ELF 머신을
 검사합니다. PT_INTERP와 DT_NEEDED 등 외부 DSO 의존성을 금지합니다.

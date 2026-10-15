@@ -122,6 +122,7 @@ master_process off;
 worker_processes 1;
 error_log logs/error.log info;
 pid logs/nginx.pid;
+pcre_jit on;
 events { worker_connections 128; }
 http {
     default_type text/plain;
@@ -131,8 +132,8 @@ http {
     gzip on;
     gzip_min_length 1;
     gzip_types text/plain;
-    ssl_certificate conf/cert.pem;
-    ssl_certificate_key conf/key.pem;
+    ssl_certificate cert.pem;
+    ssl_certificate_key key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 '''
         for mode in ['clear', 'custom']:
