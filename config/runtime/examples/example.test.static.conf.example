@@ -1,0 +1,23 @@
+# Review and copy to conf.d/example.test.conf; replace every example.test occurrence.
+# Certificate paths are relative to the conf/ directory. Supply real certificates yourself.
+server {
+    listen 80;
+    server_name example.test;
+    # Fixed canonical origin: an attacker-supplied Host is not echoed into Location.
+    return 308 https://example.test$request_uri;
+}
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name example.test;
+    ssl_certificate certs/example.test/fullchain.pem;
+    ssl_certificate_key certs/example.test/privkey.pem;
+    include snippets/tls.conf;
+    include snippets/response-headers.conf;
+    # Enable HSTS only after this domain has a valid HTTPS deployment. No preload/subdomains.
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    root sites/example.test/public;
+    include snippets/server-guards.conf;
+    if ($request_method !~ "^(GET|HEAD)$") { return 405; }
+    location / { try_files $uri $uri/ =404; }
+}

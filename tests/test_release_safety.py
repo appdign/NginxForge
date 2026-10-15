@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from common import canonical_digest, find_release, github, load, sha256, write, asset_name, verify_plan
+from common import canonical_digest, find_release, github, load, release_inputs, sha256, write, asset_name, verify_plan
 
 def module(name):
     spec = importlib.util.spec_from_file_location(name.replace('-', '_'), str(ROOT / 'scripts' / (name + '.py')))
@@ -38,6 +38,7 @@ def plan_fixture():
                 release_tag='v1.30.6-r1', channel='stable',
                 dependencies=load(ROOT / 'config/dependencies.lock.json'),
                 build_config=load(ROOT / 'config/build-config.yml'),
+                release_inputs=release_inputs(),
                 patches={p.relative_to(ROOT).as_posix(): sha256(p) for p in (ROOT/'patches').glob('*.patch')})
     plan['digest'] = canonical_digest(plan)
     return plan
@@ -93,6 +94,12 @@ class UpstreamSafety(unittest.TestCase):
         plan['digest'] = canonical_digest(plan)
         with self.assertRaises(ValueError):
             verify_plan(plan)
+
+    def test_runtime_policy_drift_is_rejected(self):
+        plan=plan_fixture()
+        plan['release_inputs']['config/runtime/nginx.conf']='bad'
+        plan.pop('digest');plan['digest']=canonical_digest(plan)
+        with self.assertRaises(ValueError): verify_plan(plan)
 
     def test_windows_configure_arguments_have_no_cr(self):
         output = subprocess.check_output([sys.executable, str(ROOT/'scripts/configure-options.py'), '--platform', 'windows'])
@@ -218,13 +225,19 @@ class ReleaseGate(unittest.TestCase):
         for target in ['linux-amd64','linux-arm64','windows-amd64']:
             binary = pe() if target.startswith('windows') else elf(183 if target.endswith('arm64') else 62)
             name = 'nginx.exe' if target.startswith('windows') else 'nginx'
+            config_files={('conf/'+key[len('config/runtime/'):]) if key.startswith('config/runtime/')
+                          else ('SECURITY-CONFIG.md' if key=='docs/SECURITY-CONFIG.md' else key):
+                          (ROOT/key).read_bytes() for key in self.plan['release_inputs']}
+            config_files['html/__nginxforge_error.html']=b'generic error fixture'
             metadata = dict(target=target, plan_digest=self.plan['digest'],
                             source_revision=self.plan['source_revision'], nginx=self.plan['nginx'],
                             patches=self.plan['patches'], dependencies=self.plan['dependencies'],
+                            release_inputs=self.plan['release_inputs'],
+                            configuration_sha256={key:hashlib.sha256(value).hexdigest() for key,value in config_files.items()},
                             binary_name=name, binary_sha256=hashlib.sha256(binary).hexdigest(),
                             binary=dict(format='PE32+',crt='static') if target.startswith('windows') else dict(format='ELF64',machine=183 if target.endswith('arm64') else 62,fully_static=True))
             archive = self.artifacts/asset_name(self.plan,target)
-            files = {name:binary, 'build-info.json':json.dumps(metadata).encode()}
+            files = dict(config_files, **{name:binary, 'build-info.json':json.dumps(metadata).encode()})
             if target.startswith('windows'):
                 with zipfile.ZipFile(str(archive),'w') as bundle:
                     for key,value in files.items(): bundle.writestr(key,value)
@@ -241,7 +254,7 @@ class ReleaseGate(unittest.TestCase):
                 os_id,version=system.split('-',1)
                 report=dict(status='passed',target=target,os=system,plan_digest=self.plan['digest'],
                             source_revision=self.plan['source_revision'],binary_sha256=metadata['binary_sha256'],
-                            checks=gate.integration.REQUIRED_CHECKS,
+                            checks=gate.integration.required_checks(target),archive_sha256=metadata['archive_sha256'],
                             identity=dict(id=os_id,version=version,machine='aarch64' if target.endswith('arm64') else 'x86_64',build=20348))
                 write(self.reports/(target+'-'+system+'.json'),report)
 
@@ -291,6 +304,10 @@ class ReleaseGate(unittest.TestCase):
     def test_archive_tampering_blocks_release(self):
         path=self.artifacts/asset_name(self.plan,'linux-arm64')
         path.write_bytes(path.read_bytes()+b'corruption')
+        with self.assertRaises(ValueError): self.run_gate()
+
+    def test_test_report_for_a_different_config_archive_is_rejected(self):
+        self.change('linux-arm64-rocky-8.json',lambda v:v.update(archive_sha256='wrong-configuration-archive'))
         with self.assertRaises(ValueError): self.run_gate()
 
 if __name__ == '__main__': unittest.main()

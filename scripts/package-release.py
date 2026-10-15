@@ -83,10 +83,23 @@ def main():
     shutil.copy2(str(binary), str(stage / binary_name))
     (stage / binary_name).chmod(0o755)
     shutil.copytree(str(ROOT / 'config/runtime'), str(stage / 'conf'))
+    linux = args.target.startswith('linux-')
+    (stage / 'conf/platform.conf').write_text(
+        '# Linux: native openat/fstatat-based link restriction.\ndisable_symlinks on;\n' if linux else
+        '# Windows: disable_symlinks is unavailable.\n# Require OS ACL and reparse-point review; see SECURITY-CONFIG.md, WEB-12.\n',
+        encoding='utf-8')
     for name in ['logs', 'temp', 'html']:
         (stage / name).mkdir()
         (stage / name / '.keep').touch()
     (stage / 'html/index.html').write_text('<!doctype html><title>Ready</title><p>Ready</p>\n')
+    (stage / 'html/__nginxforge_error.html').write_text('<!doctype html><title>Request unavailable</title><p>The request could not be completed.</p>\n')
+    shutil.copy2(str(ROOT/'docs/SECURITY-CONFIG.md'),str(stage/'SECURITY-CONFIG.md'))
+    (stage/'security').mkdir()
+    shutil.copy2(str(ROOT/'security/kisa-2026.json'),str(stage/'security/kisa-2026.json'))
+    configuration = {p.relative_to(stage).as_posix(): sha256(p) for p in sorted((stage/'conf').rglob('*')) if p.is_file()}
+    configuration['SECURITY-CONFIG.md'] = sha256(stage/'SECURITY-CONFIG.md')
+    configuration['security/kisa-2026.json'] = sha256(stage/'security/kisa-2026.json')
+    configuration['html/__nginxforge_error.html'] = sha256(stage/'html/__nginxforge_error.html')
     for name in ['LICENSE', 'THIRD_PARTY_LICENSES.md']:
         shutil.copy2(str(ROOT / name), str(stage / name))
     licenses = stage / 'licenses'
@@ -112,6 +125,10 @@ def main():
     metadata = dict(schema=1, target=args.target, plan_digest=plan['digest'],
                     source_revision=plan['source_revision'], nginx=plan['nginx'],
                     dependencies=plan['dependencies'], patches=plan['patches'],
+                    release_inputs=plan['release_inputs'], configuration_sha256=configuration,
+                    security_capabilities=dict(kisa_edition=2026,control_count=26,
+                        automatic_compliance_verdict=False,
+                        symlink_enforcement='native_disable_symlinks' if linux else 'requires_windows_os_acl_review'),
                     configure_options=options, nginx_V=output, binary=identity,
                     binary_name=binary_name, binary_sha256=sha256(binary),
                     build_host=dict(system=platform.system(), machine=platform.machine(),

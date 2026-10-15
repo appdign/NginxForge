@@ -1,0 +1,277 @@
+{
+  "schema": 1,
+  "edition": 2026,
+  "publication_date": "2025-12-24",
+  "section": "웹 서비스",
+  "control_count": 26,
+  "source_pages": [
+    272,
+    273
+  ],
+  "source_url": "https://www.kisa.kr/2060204/form?postSeq=22&page=1",
+  "pdf_url": "https://www.kisa.kr/post/fileDownload?menuSeq=2060204&postSeq=22&attachSeq=1&lang_type=KO",
+  "pdf_sha256": "44fe393981b244147be6af7423d99dc15633c089fad0bcb296cbe2371dde812d",
+  "certification_claim": false,
+  "controls": [
+    {
+      "id": "WEB-01",
+      "topic": "관리자 계정명",
+      "nginx_listed_in_official_scope": false,
+      "support": "operational_or_backend",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "backend 관리자 계정"
+    },
+    {
+      "id": "WEB-02",
+      "topic": "관리자 암호",
+      "nginx_listed_in_official_scope": false,
+      "support": "operational_or_backend",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "backend 암호 정책"
+    },
+    {
+      "id": "WEB-03",
+      "topic": "비밀번호 파일 권한",
+      "nginx_listed_in_official_scope": false,
+      "support": "operational_or_backend",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "OS 파일/ACL"
+    },
+    {
+      "id": "WEB-04",
+      "topic": "목록 출력",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "다른 vhost/backend override와 운영 설정"
+    },
+    {
+      "id": "WEB-05",
+      "topic": "CGI/ISAPI 매핑",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "다른 vhost/backend override와 운영 설정"
+    },
+    {
+      "id": "WEB-06",
+      "topic": "상위 경로 접근",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "다른 vhost/backend override와 운영 설정"
+    },
+    {
+      "id": "WEB-07",
+      "topic": "불필요 파일",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "불필요 파일 제거"
+    },
+    {
+      "id": "WEB-08",
+      "topic": "전송 크기",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "앱/저장소 다운로드 크기·총량"
+    },
+    {
+      "id": "WEB-09",
+      "topic": "프로세스 권한",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "OS 서비스 계정"
+    },
+    {
+      "id": "WEB-10",
+      "topic": "프록시 제한",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "다른 vhost/backend override와 운영 설정"
+    },
+    {
+      "id": "WEB-11",
+      "topic": "서비스 루트",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "실제 웹 루트와 권한"
+    },
+    {
+      "id": "WEB-12",
+      "topic": "파일시스템 링크",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "Windows NTFS/ACL/reparse point"
+    },
+    {
+      "id": "WEB-13",
+      "topic": "설정 노출",
+      "nginx_listed_in_official_scope": false,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "backend 설정"
+    },
+    {
+      "id": "WEB-14",
+      "topic": "파일 접근",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "앱 인증·인가 및 OS 권한"
+    },
+    {
+      "id": "WEB-15",
+      "topic": "스크립트 매핑",
+      "nginx_listed_in_official_scope": false,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "backend 매핑"
+    },
+    {
+      "id": "WEB-16",
+      "topic": "응답 헤더",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "headers-more (already included)",
+      "manual_review": "다른 vhost/backend override와 운영 설정"
+    },
+    {
+      "id": "WEB-17",
+      "topic": "가상 디렉터리",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "기존 alias 검토"
+    },
+    {
+      "id": "WEB-18",
+      "topic": "WebDAV",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "다른 vhost/backend override와 운영 설정"
+    },
+    {
+      "id": "WEB-19",
+      "topic": "SSI",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "다른 vhost/backend override와 운영 설정"
+    },
+    {
+      "id": "WEB-20",
+      "topic": "TLS",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "실제 인증서·갱신"
+    },
+    {
+      "id": "WEB-21",
+      "topic": "HTTPS 이동",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "실제 도메인 활성화"
+    },
+    {
+      "id": "WEB-22",
+      "topic": "오류 정보",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "앱 오류 본문"
+    },
+    {
+      "id": "WEB-23",
+      "topic": "LDAP 알고리즘",
+      "nginx_listed_in_official_scope": false,
+      "support": "operational_or_backend",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "LDAP backend"
+    },
+    {
+      "id": "WEB-24",
+      "topic": "업로드 분리",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "앱 업로드 저장소/실행 권한"
+    },
+    {
+      "id": "WEB-25",
+      "topic": "보안 패치",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "고객사 패치 적용"
+    },
+    {
+      "id": "WEB-26",
+      "topic": "로그 권한",
+      "nginx_listed_in_official_scope": true,
+      "support": "configuration_with_environment_review",
+      "automatic_compliance_verdict": false,
+      "requires_additional_module": false,
+      "module": "NGINX core / OS / application",
+      "manual_review": "OS 로그 권한/보존"
+    }
+  ]
+}

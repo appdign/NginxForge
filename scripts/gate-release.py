@@ -31,7 +31,7 @@ def gate(plan, artifacts, reports, output):
             raise ValueError('Unexpected or duplicate test report: ' + repr(key))
         if (report['status'] != 'passed' or report['plan_digest'] != plan['digest']
                 or report['source_revision'] != plan['source_revision']
-                or sorted(report['checks']) != sorted(integration.REQUIRED_CHECKS)):
+                or sorted(report['checks']) != sorted(integration.required_checks(report['target']))):
             raise ValueError('Failed, incomplete, or mismatched test report: ' + str(path))
         identity = report['identity']
         expected_arches = {'amd64': {'amd64', 'x86_64'}, 'arm64': {'arm64', 'aarch64'}}[key[0].rsplit('-', 1)[1]]
@@ -55,6 +55,7 @@ def gate(plan, artifacts, reports, output):
                 or metadata['source_revision'] != plan['source_revision']
                 or metadata['nginx'] != plan['nginx'] or metadata['patches'] != plan['patches']
                 or metadata['dependencies'] != plan['dependencies']
+                or metadata['release_inputs'] != plan['release_inputs']
                 or metadata['archive'] != asset_name(plan, target)):
             raise ValueError('Inconsistent platform build: ' + target)
         if target.startswith('linux-'):
@@ -69,11 +70,28 @@ def gate(plan, artifacts, reports, output):
                     or metadata['binary'].get('crt') != 'static'):
                 raise ValueError('Windows AMD64 native PE/static CRT evidence required')
         embedded = load(binary.parent / 'build-info.json')
+        expected_configuration = {('conf/'+name[len('config/runtime/'):]) if name.startswith('config/runtime/')
+                                  else ('SECURITY-CONFIG.md' if name=='docs/SECURITY-CONFIG.md' else name)
+                                  for name in plan['release_inputs']}
+        expected_configuration.add('html/__nginxforge_error.html')
+        if set(metadata['configuration_sha256']) != expected_configuration:
+            raise ValueError('Incomplete security configuration package')
+        for name,digest in metadata['configuration_sha256'].items():
+            if '..' in name or name.startswith('/') or '\\' in name or ':' in name:
+                raise ValueError('Unsafe configuration metadata path')
+            if sha256(binary.parent/name) != digest:
+                raise ValueError('Packaged security configuration digest mismatch: '+name)
+            source_name = ('config/runtime/'+name[5:]) if name.startswith('conf/') else (
+                'docs/SECURITY-CONFIG.md' if name=='SECURITY-CONFIG.md' else name)
+            if source_name in plan['release_inputs'] and name!='conf/platform.conf':
+                if digest != plan['release_inputs'][source_name]:
+                    raise ValueError('Packaged policy differs from resolved source: '+name)
         for key in embedded:
             if embedded[key] != metadata[key]:
                 raise ValueError('Embedded build metadata mismatch: ' + key)
         for (report_target, os_name), report in actual.items():
-            if report_target == target and report['binary_sha256'] != metadata['binary_sha256']:
+            if report_target == target and (report['binary_sha256'] != metadata['binary_sha256']
+                    or report['archive_sha256'] != metadata['archive_sha256']):
                 raise ValueError('Test did not execute the release binary: ' + os_name)
         shutil.copy2(str(Path(artifacts) / metadata['archive']), str(output / metadata['archive']))
         platforms[target] = metadata
@@ -95,6 +113,7 @@ Runtime tests passed on Ubuntu 22.04/24.04 and Rocky Linux 8/9 for BOTH Linux ar
 
 Included: headers-more {headers}, OpenSSL {openssl}, PCRE2 {pcre2}, zlib {zlib}.
 Patch: remove three built-in error-page identity footers. HTTP/HTTPS header filtering, TLS 1.2/1.3, HTTP/2 negotiation, proxy, gzip and rewrite are tested.
+Includes reviewed KISA 2026 configuration examples and a 26-control applicability matrix. Examples do not certify compliance: OS ACLs, credentials, certificates, backend/application controls and production activation require review. Windows link enforcement requires OS controls.
 All source commits, SHA-256 digests, configure options and per-platform test evidence are in build-manifest.json.
 
 Linux tests use native containers sharing the runner kernel. Customer Windows Server installation, production load, service integration and customer kernel testing are separate. Windows retains upstream NGINX/Windows scalability and service limitations. Configuration, certificates and log directories are external runtime resources. Header hiding does not fix vulnerabilities.

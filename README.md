@@ -25,6 +25,7 @@ ARM64를 후속 과제로 미루거나 실패를 무시하지 않습니다. Linu
 - 세 줄의 공통 패치로 기본 오류 페이지의 NGINX 식별 푸터 제거
 - OpenSSL, PCRE2 JIT, zlib, HTTP/2, 리버스 프록시, gzip, rewrite
 - 동일한 NGINX 태그/커밋, 보안 패치와 의존성 잠금을 세 바이너리에 적용
+- KISA 2026 웹 서비스 26개 항목 대응표와 공통 보안 설정·도메인별 HTTPS/프록시 예시 배포
 - Linux ELF 인터프리터·동적 섹션 차단, Windows AMD64 PE와 시스템 DLL 의존성 검사
 - 매일 09:00 KST경 공식 Stable 확인, 수동 Mainline/특정 버전/재빌드 지원
 - 모든 필수 검사 통과 → draft 업로드 → 업로드 파일 재검증 → 정식 발행
@@ -73,6 +74,7 @@ GitHub Actions를 활성화하면 `main`의 빌드 관련 변경으로 검증 �
 - [업스트림 추적](docs/UPSTREAM.md)
 - [통합 요구사항](docs/REQUIREMENTS.md)
 - [실제 검증 상태와 완료 기준](docs/STATUS.md)
+- [KISA 2026 보안 설정·도메인 샘플과 운영 조치](docs/SECURITY-CONFIG.md)
 - [라이선스](THIRD_PARTY_LICENSES.md)
 
 로컬 제어 로직 검증:
@@ -83,3 +85,8 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 바이너리 빌드는 GitHub Actions에서 수행합니다. 정식 릴리즈가 실제로 발행되고
 모든 필수 플랫폼 증거가 확인되기 전에는 프로젝트를 완료로 간주하지 않습니다.
+
+보안 샘플은 `conf/examples/*.example`로 비활성 상태로 포함됩니다. 실제 도메인·인증서·
+운영 정책을 검토하여 `conf/conf.d/*.conf`로 활성화합니다. 새 설치 기본 설정은 localhost만
+수신합니다. 기존 설정을 자동 덮어쓰지 않습니다. 보안 기능·샘플 포함은 KISA 점검 통과나
+인증을 뜻하지 않으며 Windows NTFS 링크/ACL, 앱 관리자 인증·업로드·다운로드 정책은 별도 조치가 필요합니다.

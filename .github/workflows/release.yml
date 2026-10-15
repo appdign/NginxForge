@@ -2,7 +2,7 @@ name: NginxForge gated release
 on:
   push:
     branches: [main]
-    paths: ['scripts/**', 'tests/**', 'config/**', 'patches/**', '.github/workflows/**', 'LICENSE', 'THIRD_PARTY_LICENSES.md']
+    paths: ['scripts/**', 'tests/**', 'config/**', 'security/**', 'docs/SECURITY-CONFIG.md', 'patches/**', '.github/workflows/**', 'LICENSE', 'THIRD_PARTY_LICENSES.md']
   workflow_dispatch:
     inputs:
       version:

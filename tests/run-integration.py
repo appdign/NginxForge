@@ -19,7 +19,9 @@ import threading
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import ROOT, load, sha256, write
+from security_profiles import COMMON_CHECKS, platform_checks, run_profiles
 
 spec = importlib.util.spec_from_file_location('unpack', str(ROOT / 'scripts/unpack-artifact.py'))
 unpack_module = importlib.util.module_from_spec(spec)
@@ -30,6 +32,9 @@ REQUIRED_CHECKS = ['version', 'build-options', 'configuration', 'invalid-configu
     protocol + ':' + mode + ':' + operation
     for protocol in ['http', 'https'] for mode in ['clear', 'custom']
     for operation in ['static', 'head', '404', '500', 'proxy', 'proxy-error', 'gzip', 'rewrite']]
+
+def required_checks(target):
+    return REQUIRED_CHECKS + COMMON_CHECKS + platform_checks(target)
 
 def check(condition, message):
     if not condition:
@@ -246,9 +251,11 @@ http {
                 log.close()
             backend.shutdown()
             backend.server_close()
-    check(sorted(passed) == sorted(REQUIRED_CHECKS), 'Incomplete test suite')
+    run_profiles(binary,ROOT/'build/runtime',metadata,args.target,ROOT,check,done)
+    check(sorted(passed) == sorted(required_checks(args.target)), 'Incomplete test suite')
     write(args.report, dict(schema=1, status='passed', target=args.target, os=args.os,
                             identity=identity, binary_sha256=sha256(binary),
+                            archive_sha256=metadata['archive_sha256'],
                             plan_digest=plan['digest'], source_revision=plan['source_revision'],
                             checks=sorted(passed)))
 

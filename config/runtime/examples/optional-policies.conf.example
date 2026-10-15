@@ -1,0 +1,14 @@
+# Examples only; copy individual directives into the correct context after app review.
+# HTTPS server: strict CSP can break inline scripts, external assets, frames or SSO flows.
+# add_header Content-Security-Policy "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'" always;
+# If adding headers in a location, include snippets/response-headers.conf there as well.
+
+# Proxy location: use the real session cookie name. Do not mark every cookie HttpOnly:
+# JavaScript-readable CSRF cookies may need to remain readable.
+# proxy_cookie_flags JSESSIONID secure httponly samesite=lax;
+
+# HTTP context, ONLY when actually behind this trusted load balancer:
+# set_real_ip_from 192.0.2.10/32;
+# real_ip_header X-Forwarded-For;
+# real_ip_recursive on;
+# Replace the documentation-only CIDR. Never trust 0.0.0.0/0 or ::/0.

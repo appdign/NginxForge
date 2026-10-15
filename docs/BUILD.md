@@ -43,6 +43,20 @@ Linux는 `file`, `readelf`, `ldd` 진단과 별도 ELF 파서로 완전 정적 �
 `dumpbin /dependents`로 비시스템 DLL 의존성을 차단하고 MSVC 정적 CRT를 사용합니다.
 OpenSSL의 외부 모듈/DSO 로딩은 비활성화합니다.
 
+## 보안 프로필과 실행 검사
+
+`config/runtime`의 기본 설정·도메인 템플릿·snippets, 보안 운영 문서와 26개 항목 대응표도
+공통 build plan에서 SHA-256으로 고정합니다. Windows/Linux 텍스트는 LF로 통일합니다.
+플랫폼별 platform.conf만 Linux의 native symlink 차단과 Windows의 OS ACL 요구사항으로
+구분하고, 패키지에 담긴 모든 보안 파일의 digest를 기록합니다.
+
+기존 40개 검사에 24개 패키지 보안 프로필 검사를 추가합니다. 패키지에서 나온 실제
+nginx.conf와 도메인 예시를 테스트 포트/loopback backend/테스트 인증서로 활성화하여
+리디렉션, unknown Host/SNI, 헤더 상속, 파일·스크립트·메소드 제한, 413/429, 프록시
+전달 헤더, 오류 가림, 선택적 쿠키 플래그와 관리자 CIDR 제한을 검사합니다.
+Linux는 실제 symlink 요청 거부를 검사합니다. Windows는 native 기능이 없음을 명시한
+정책/운영 요구사항을 검사하며 NTFS 링크 차단을 실행 검증했다고 표시하지 않습니다.
+
 ## 실행 검사와 릴리즈 게이트
 
 동일한 `tests/run-integration.py`가 9개 OS/CPU 조합에서 **패키지를 풀어 실제 배포 바이너리**로

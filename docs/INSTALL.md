@@ -22,7 +22,11 @@ sudo /opt/nginxforge/sbin/nginx
 ```
 
 기본 prefix는 `/opt/nginxforge`, 설정은 `conf/nginx.conf`입니다. `-p`와 `-c`로
-고정 경로를 명시할 수 있습니다. 프로세스 사용자에게 로그·temp 디렉터리 권한을 부여하고,
+고정 경로를 명시할 수 있습니다. 새 설치의 8080 포트는 127.0.0.1에서만 수신합니다.
+운영 HTTPS는 [보안 설정 문서](SECURITY-CONFIG.md)를 따라 실제 도메인·인증서를 넣어
+conf/examples의 샘플을 conf/conf.d/*.conf로 활성화합니다. 샘플 포함만으로 보안 점검이
+완료되는 것은 아닙니다. 기존 nginx.conf는 자동 변경하지 않습니다.
+프로세스 사용자에게 로그·temp 디렉터리 권한을 부여하고,
 운영에서는 전용 비특권 사용자와 조직의 systemd/SELinux 정책을 적용하세요.
 root로 기동할 때의 기본 worker 계정은 두 Linux 배포판에 공통으로 존재하는 `daemon:daemon`입니다.
 운영 전용 계정을 만들었다면 기존 설정의 `user <사용자> <그룹>;`으로 명시하세요.

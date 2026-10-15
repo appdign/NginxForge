@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import os
 import re
-from common import ROOT, canonical_digest, download, find_release, github, load, official_commit, sha256, write
+from common import ROOT, canonical_digest, download, find_release, github, load, official_commit, release_inputs, sha256, write
 
 def latest_version(page, channel):
     heading = 'Stable' if channel == 'stable' else 'Mainline'
@@ -50,6 +50,7 @@ def main():
                            url=url, sha256=hashlib.sha256(source).hexdigest()),
                 revision=revision, release_tag=tag, channel=args.channel,
                 dependencies=load(ROOT / 'config/dependencies.lock.json'), build_config=config,
+                release_inputs=release_inputs(),
                 patches={str(p.relative_to(ROOT)).replace('\\', '/'): sha256(p)
                          for p in sorted((ROOT / 'patches').glob('*.patch'))})
     plan['digest'] = canonical_digest(plan)

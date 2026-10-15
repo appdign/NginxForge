@@ -89,6 +89,11 @@ def asset_name(plan, target):
     return 'nginxforge-{}-{}.{}'.format(archive_version(plan), target,
                                        'zip' if target.startswith('windows') else 'tar.gz')
 
+def release_inputs():
+    paths = [p for p in (ROOT / 'config/runtime').rglob('*') if p.is_file()]
+    paths += [ROOT / 'docs/SECURITY-CONFIG.md', ROOT / 'security/kisa-2026.json']
+    return {p.relative_to(ROOT).as_posix(): sha256(p) for p in sorted(paths)}
+
 def verify_plan(plan):
     stored = dict(plan)
     digest = stored.pop('digest')
@@ -99,6 +104,8 @@ def verify_plan(plan):
         raise ValueError('Source lock differs from resolved plan')
     if plan['build_config'] != config:
         raise ValueError('Build configuration differs from resolved plan')
+    if plan.get('release_inputs') != release_inputs():
+        raise ValueError('Runtime configuration/security policy differs from resolved plan')
     actual = {str(p.relative_to(ROOT)).replace('\\', '/'): sha256(p)
               for p in sorted((ROOT / 'patches').glob('*.patch'))}
     if actual != plan['patches']:
