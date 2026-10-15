@@ -15,7 +15,7 @@ mapfile -t options < <(python3 ../../../scripts/configure-options.py --platform 
 test "${#options[@]}" -gt 10
 printf '%s\n' "${options[@]}" > ../../configure-options.txt
 ./auto/configure "${options[@]}"
-make -j"$(getconf _NPROCESSORS_ONLN)"
+make -j"$(nproc)"
 cd ../../..
 bash scripts/verify-binary.sh build/src/nginx/objs/nginx "$arch"
 python3 scripts/package-release.py --plan build/plan.json --target "linux-$arch" \
