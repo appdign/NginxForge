@@ -24,6 +24,10 @@
 네이티브 Runner가 없으면 대기 또는 실패하며, ARM 검증을 생략하거나 에뮬레이션으로
 대체하여 릴리즈하지 않습니다. 공개 저장소의 표준 ARM64 Runner를 사용합니다.
 Windows는 공식 Win32 빌드 절차를 따르며 Git Bash를 configure 셸로 사용합니다.
+MSVC는 `-FIngx_config.h`로 NGINX의 precompiled header를 소스보다 먼저 포함하고
+`DDEBUG=0`을 공통 정의합니다. headers-more의 늦은 ngx_config.h include가 그 앞의
+모듈 선언을 건너뛰게 하는 MSVC PCH 문제를 컴파일 옵션으로 해결하며 모듈 코드를
+수정하거나 경고를 비활성화하지 않습니다.
 OpenSSL은 두 Linux CPU에서 네이티브 최적화를 사용하고 Windows에서는 no-asm을 사용합니다.
 Linux 기본 worker 계정은 `daemon:daemon`으로 명시하여 Alpine의 빌드 시 계정 자동 감지가
 Ubuntu/Rocky 런타임의 그룹 이름 차이로 이어지지 않게 합니다. 운영에서는 전용 계정을

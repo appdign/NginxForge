@@ -52,8 +52,8 @@ Windows:
 Linux:
 - Gitea와 유사한 단일 바이너리 배포를 목표로 한다.
 - Ubuntu와 Rocky Linux에서 공통으로 실행되는 바이너리를 우선 검토한다.
-- musl libc 기반 정적 빌드를 우선 검토한다.
-- OpenSSL, PCRE2, zlib 등의 의존성을 가능한 범위에서 정적 링크한다.
+- musl libc 기반 완전 정적 빌드를 Linux AMD64와 ARM64 모두에서 필수 구현한다.
+- OpenSSL, PCRE2, zlib 및 보안 확장 기능을 AMD64·ARM64 모두에 정적으로 통합한다.
 - 고객사 서버에서 `configure`, `make`, `make install`을 요구하지 않는다.
 - 최초 환경 구성 이후에는 실행 파일 교체만으로 업데이트할 수 있어야 한다.
 
@@ -201,7 +201,7 @@ GitHub Actions의 `schedule` 기능을 사용한다.
 8. 전체 필수 운영체제·CPU 기능 테스트
 9. 전체 성공 시 GitHub Release 생성
 
-Linux와 Windows 빌드는 병렬 실행할 수 있도록 설계한다.
+Linux AMD64, Linux ARM64 및 Windows AMD64 빌드는 병렬 실행할 수 있도록 설계한다.
 
 단, 모든 필수 플랫폼이 통과하기 전에는 정식 릴리즈를 발행하지 않는다.
 

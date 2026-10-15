@@ -61,7 +61,7 @@
       "--prefix=",
       "--sbin-path=nginx.exe",
       "--with-openssl-opt=no-asm no-shared no-tests no-module no-dso",
-      "--with-cc-opt=-DFD_SETSIZE=1024"
+      "--with-cc-opt=-DFD_SETSIZE=1024 -DDDEBUG=0 -FIngx_config.h"
     ]
   }
 }
