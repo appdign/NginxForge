@@ -7,6 +7,6 @@ location /admin/ {
     deny all;
     # Optional extra gate, after creating a protected credential file outside every web root:
     # auth_basic "Restricted";
-    # auth_basic_user_file conf/secrets/admin.htpasswd;
+    # auth_basic_user_file secrets/admin.htpasswd; # Relative to conf/, not the prefix.
     proxy_pass http://127.0.0.1:9000;
 }
