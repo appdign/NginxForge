@@ -97,7 +97,10 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
         check(result.returncode==0,result.stdout)
         done('profile:configuration')
         log=open(str(base/'process.log'),'wb')
-        def request(host,path='/',method='GET',headers=None,https=True):
+        def request(host,path='/',method='GET',headers=None,https=True,paced=True):
+            # Isolate functional cases from the real shipped 10 requests/s bucket.
+            # The separate burst below stays unpaced and MUST demonstrate 429.
+            if paced: time.sleep(.12)
             if https:
                 # Preserve the reviewed domain as SNI while connecting only to loopback.
                 raw=socket.create_connection(('127.0.0.1',https_port),timeout=10)
@@ -163,7 +166,7 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
                 check(status in (400,405), 'Disallowed method accepted: '+method)
             done('profile:methods')
             status,headers,data=request('app.example.test','/upload',method='POST',headers={'Content-Length':str(5*1024*1024+1)})
-            check(status==413,'Oversize upload was not rejected')
+            check(status==413,'Oversize upload response: '+str((status,data)))
             done('profile:request-size')
             status,headers,data=request('app.example.test','/echo',headers={
                 'X-Forwarded-For':'203.0.113.55','X-Real-IP':'203.0.113.55','Forwarded':'for=203.0.113.55'})
@@ -204,7 +207,7 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             # Run last: consume this profile's token bucket and verify real 429 responses.
             limited=False
             for _ in range(100):
-                status,headers,data=request('example.test','/index.html')
+                status,headers,data=request('example.test','/index.html',paced=False)
                 if status==429: limited=True; break
             check(limited,'Per-client request limit did not produce 429')
             done('profile:rate-limit')
