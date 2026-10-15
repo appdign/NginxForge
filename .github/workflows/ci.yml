@@ -1,0 +1,17 @@
+name: Pull request verification
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - run: python3 -m compileall -q scripts tests
+      - name: Validate shell syntax
+        run: |
+          for script in scripts/*.sh; do bash -n "$script"; done

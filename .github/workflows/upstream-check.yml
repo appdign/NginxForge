@@ -1,0 +1,13 @@
+name: Daily upstream check (09:00 KST)
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  check-and-release:
+    uses: ./.github/workflows/release.yml
+    with:
+      channel: stable
+      publish: true

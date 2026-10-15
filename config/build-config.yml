@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "revision": 1,
+  "default_channel": "stable",
+  "images": {
+    "alpine": "library/alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0",
+    "ubuntu-22.04": "library/ubuntu:22.04@sha256:5ec03bb3441e8b0bf3b4f9cd4629a1ae763010dc3035bb8da3ae6cf026486401",
+    "ubuntu-24.04": "library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55",
+    "rocky-8": "rockylinux/rockylinux:8@sha256:e8a49c5403b687db05d4d67333fa45808fbe74f36e683cec7abb1f7d0f2338c6",
+    "rocky-9": "rockylinux/rockylinux:9@sha256:8101994123cf3d0a8fee517bee7f39e555c7d92bd2d9eb3303cc988a0eeed00f"
+  },
+  "required_targets": [
+    "linux-amd64",
+    "linux-arm64",
+    "windows-amd64"
+  ],
+  "linux_test_os": [
+    "ubuntu-22.04",
+    "ubuntu-24.04",
+    "rocky-8",
+    "rocky-9"
+  ],
+  "runners": {
+    "amd64": "ubuntu-24.04",
+    "arm64": "ubuntu-24.04-arm",
+    "windows": "windows-2022"
+  },
+  "configure": {
+    "common": [
+      "--conf-path=conf/nginx.conf",
+      "--pid-path=logs/nginx.pid",
+      "--error-log-path=logs/error.log",
+      "--http-log-path=logs/access.log",
+      "--http-client-body-temp-path=temp/client_body",
+      "--http-proxy-temp-path=temp/proxy",
+      "--http-fastcgi-temp-path=temp/fastcgi",
+      "--http-uwsgi-temp-path=temp/uwsgi",
+      "--http-scgi-temp-path=temp/scgi",
+      "--with-http_ssl_module",
+      "--with-http_v2_module",
+      "--with-http_realip_module",
+      "--with-http_stub_status_module",
+      "--with-pcre=../pcre2",
+      "--with-pcre-jit",
+      "--with-zlib=../zlib",
+      "--with-openssl=../openssl",
+      "--add-module=../headers-more"
+    ],
+    "linux": [
+      "--prefix=/opt/nginxforge",
+      "--sbin-path=sbin/nginx",
+      "--lock-path=logs/nginx.lock",
+      "--with-openssl-opt=no-shared no-tests no-module no-dso",
+      "--with-cc-opt=-O2 -fstack-protector-strong",
+      "--with-ld-opt=-static -Wl,--build-id=sha1"
+    ],
+    "windows": [
+      "--with-cc=cl",
+      "--prefix=",
+      "--sbin-path=nginx.exe",
+      "--with-openssl-opt=no-asm no-shared no-tests no-module no-dso",
+      "--with-cc-opt=-DFD_SETSIZE=1024"
+    ]
+  }
+}

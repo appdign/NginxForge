@@ -1,0 +1,119 @@
+name: NginxForge gated release
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/**', 'tests/**', 'config/**', 'patches/**', '.github/workflows/**', 'LICENSE', 'THIRD_PARTY_LICENSES.md']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Official upstream version; blank resolves channel latest
+        type: string
+        default: ''
+      channel:
+        description: Upstream channel
+        type: choice
+        options: [stable, mainline]
+        default: stable
+      rebuild:
+        description: Rebuild/test even if already published (never overwrite)
+        type: boolean
+        default: false
+      publish:
+        description: Publish only after every mandatory check passes
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        default: ''
+      channel:
+        type: string
+        default: stable
+      rebuild:
+        type: boolean
+        default: false
+      publish:
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: nginxforge-release-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.resolve.outputs.build }}
+      publishable: ${{ steps.resolve.outputs.publishable }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test release control logic
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Resolve official release and immutable common source plan
+        id: resolve
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version || '' }}
+          INPUT_CHANNEL: ${{ inputs.channel || 'stable' }}
+          INPUT_REBUILD: ${{ inputs.rebuild || github.event_name == 'push' }}
+        run: |
+          args=()
+          if [[ "$INPUT_REBUILD" == true ]]; then args+=(--rebuild); fi
+          python3 scripts/check-upstream.py --version "$INPUT_VERSION" --channel "$INPUT_CHANNEL" "${args[@]}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.resolve.outputs.build == 'true'
+        with:
+          name: build-plan
+          path: build/plan.json
+          if-no-files-found: error
+  linux:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    uses: ./.github/workflows/build-linux.yml
+  windows:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    uses: ./.github/workflows/build-windows.yml
+  release:
+    needs: [plan, linux, windows]
+    if: needs.plan.outputs.build == 'true' && needs.linux.result == 'success' && needs.windows.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: build-plan
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: binary-*
+          merge-multiple: true
+          path: build/artifacts
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: evidence-*
+          merge-multiple: true
+          path: build/reports
+      - name: Enforce complete architecture and OS evidence
+        run: python3 scripts/gate-release.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verified-release
+          path: |
+            build/release/*
+            build/release-notes.md
+          if-no-files-found: error
+      - name: Publish verified draft and promote
+        if: needs.plan.outputs.publishable == 'true' && (github.event_name == 'push' || inputs.publish)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish-release.py

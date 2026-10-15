@@ -1,0 +1,40 @@
+name: Windows native build and runtime
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: build-plan
+          path: build
+      - name: Build native AMD64 MSVC binary
+        shell: pwsh
+        run: ./scripts/build-windows.ps1
+      - name: Execute native Windows Server 2022 tests
+        shell: pwsh
+        run: |
+          python tests/run-integration.py --target windows-amd64 --os windows-2022 --artifacts build/dist --report build/reports/windows-amd64-windows-2022.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: binary-windows-amd64
+          path: build/dist/*
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence-windows-amd64-windows-2022
+          path: build/reports/*.json
+          if-no-files-found: error
+          retention-days: 14

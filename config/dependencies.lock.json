@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "sources": {
+    "openssl": {
+      "version": "3.5.9",
+      "repository": "openssl/openssl",
+      "tag": "openssl-3.5.9",
+      "commit": "45e844fa2a14ec92d146bd8f5778ac130b6625fb",
+      "url": "https://codeload.github.com/openssl/openssl/tar.gz/45e844fa2a14ec92d146bd8f5778ac130b6625fb",
+      "sha256": "f54250b21795bb01240f3f9b42c384868d04460e339e39275aaaf93487f2d903"
+    },
+    "pcre2": {
+      "version": "10.49",
+      "repository": "PCRE2Project/pcre2",
+      "tag": "pcre2-10.49",
+      "commit": "6f9d7c1373262c541324a16a358785b33ef116cf",
+      "url": "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.gz",
+      "sha256": "929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae"
+    },
+    "zlib": {
+      "version": "1.3.2",
+      "repository": "madler/zlib",
+      "tag": "v1.3.2",
+      "commit": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "url": "https://codeload.github.com/madler/zlib/tar.gz/da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "sha256": "b9258cf6254e7f7c37f1cd61dba943a1c5ea3cff5718c789834dac359094f5f7"
+    },
+    "headers-more": {
+      "version": "0.40",
+      "repository": "openresty/headers-more-nginx-module",
+      "tag": "v0.40",
+      "commit": "0bf283ff92017acd616814b0e5153e0ccf93e2c9",
+      "url": "https://codeload.github.com/openresty/headers-more-nginx-module/tar.gz/0bf283ff92017acd616814b0e5153e0ccf93e2c9",
+      "sha256": "4bf2446837aa97095307d83043f6ab61638a61df034b25ac6f05c51f01c3a93b"
+    }
+  }
+}
