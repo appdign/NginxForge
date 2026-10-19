@@ -6,7 +6,7 @@ from pathlib import Path
 import shutil
 import struct
 import sys
-from common import ROOT, asset_name, load, sha256, verify_plan, write
+from common import ROOT, asset_name, load, packaged_policy_path, sha256, verify_plan, write
 
 def module(name, path):
     spec = importlib.util.spec_from_file_location(name, str(path))
@@ -70,9 +70,10 @@ def gate(plan, artifacts, reports, output):
                     or metadata['binary'].get('crt') != 'static'):
                 raise ValueError('Windows AMD64 native PE/static CRT evidence required')
         embedded = load(binary.parent / 'build-info.json')
-        expected_configuration = {('conf/'+name[len('config/runtime/'):]) if name.startswith('config/runtime/')
-                                  else ('SECURITY-CONFIG.md' if name=='docs/SECURITY-CONFIG.md' else name)
-                                  for name in plan['release_inputs']}
+        source_by_package = {packaged_policy_path(name): name for name in plan['release_inputs']}
+        if len(source_by_package) != len(plan['release_inputs']):
+            raise ValueError('Colliding packaged policy paths')
+        expected_configuration = set(source_by_package)
         expected_configuration.add('html/__nginxforge_error.html')
         if set(metadata['configuration_sha256']) != expected_configuration:
             raise ValueError('Incomplete security configuration package')
@@ -81,8 +82,7 @@ def gate(plan, artifacts, reports, output):
                 raise ValueError('Unsafe configuration metadata path')
             if sha256(binary.parent/name) != digest:
                 raise ValueError('Packaged security configuration digest mismatch: '+name)
-            source_name = ('config/runtime/'+name[5:]) if name.startswith('conf/') else (
-                'docs/SECURITY-CONFIG.md' if name=='SECURITY-CONFIG.md' else name)
+            source_name = source_by_package.get(name)
             if source_name in plan['release_inputs'] and name!='conf/platform.conf':
                 if digest != plan['release_inputs'][source_name]:
                     raise ValueError('Packaged policy differs from resolved source: '+name)
@@ -114,6 +114,7 @@ Runtime tests passed on Ubuntu 22.04/24.04 and Rocky Linux 8/9 for BOTH Linux ar
 Included: headers-more {headers}, OpenSSL {openssl}, PCRE2 {pcre2}, zlib {zlib}.
 Patch: remove three built-in error-page identity footers. HTTP/HTTPS header filtering, TLS 1.2/1.3, HTTP/2 negotiation, proxy, gzip and rewrite are tested.
 Includes reviewed KISA 2026 configuration examples and a 26-control applicability matrix. Examples do not certify compliance: OS ACLs, credentials, certificates, backend/application controls and production activation require review. Windows link enforcement requires OS controls.
+Optional edge policies cover exact-origin CORS/preflights, CSP/browser features, named session-cookie flags, private API caching and public management/source-map denial. Code-only frontend/Spring Boot review prompts and an ownership guide are included.
 All source commits, SHA-256 digests, configure options and per-platform test evidence are in build-manifest.json.
 
 Linux tests use native containers sharing the runner kernel. Customer Windows Server installation, production load, service integration and customer kernel testing are separate. Windows retains upstream NGINX/Windows scalability and service limitations. Configuration, certificates and log directories are external runtime resources. Header hiding does not fix vulnerabilities.

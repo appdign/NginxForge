@@ -18,7 +18,9 @@ COMMON_CHECKS = ['profile:' + name for name in [
     'static-https', 'security-headers', 'directory-listing', 'hidden-files',
     'backup-config-files', 'traversal', 'script-mapping', 'methods', 'request-size',
     'proxy-fixed-destination', 'forwarded-headers', 'upstream-errors', 'uploads-denied',
-    'optional-cookie-flags', 'admin-acl', 'tls12', 'tls13', 'rate-limit']]
+    'optional-cookie-flags', 'admin-acl', 'tls12', 'tls13', 'rate-limit',
+    'browser-policy', 'cors-preflight', 'cors-rejection', 'cors-no-origin',
+    'api-no-store', 'management-denial', 'sourcemap-denial', 'cookie-scope']]
 
 def platform_checks(target):
     return ['profile:linux-symlink-denial'] if target.startswith('linux-') else ['profile:windows-link-review-documented']
@@ -32,6 +34,15 @@ class Backend(BaseHTTPRequestHandler):
         self.send_response(500 if self.path == '/upstream-error' else 200)
         self.send_header('X-Powered-By', 'SecretRuntime/1')
         self.send_header('Set-Cookie', 'JSESSIONID=fixture; Path=/')
+        self.send_header('Set-Cookie', 'SESSION=fixture; Path=/')
+        self.send_header('Set-Cookie', 'XSRF-TOKEN=fixture; Path=/')
+        # Edge ownership must replace these, rather than appending conflicting policies.
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Credentials', 'true')
+        self.send_header('Cache-Control', 'public, max-age=86400')
+        self.send_header('Expires', 'Thu, 01 Jan 2037 00:00:00 GMT')
+        self.send_header('Content-Security-Policy', "default-src *")
+        self.send_header('X-Frame-Options', 'DENY')
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
@@ -74,18 +85,20 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             (site/'linked.txt').symlink_to(base/'outside-secret.txt')
         config = (base/'conf/nginx.conf').read_text(encoding='utf-8')
         config='daemon off;\nmaster_process off;\n'+config.replace('127.0.0.1:8080','127.0.0.1:'+str(preview_port))
+        config=config.replace('# include examples/api-cors-http.conf.example;',
+                              'include examples/api-cors-http.conf.example;')
         (base/'conf/nginx.conf').write_text(config,encoding='utf-8')
-        cookie_line=next(line[2:] for line in (base/'conf/examples/optional-policies.conf.example').read_text().splitlines()
-                         if line.startswith('# proxy_cookie_flags '))
         for template in ['00-default-deny.conf.example','example.test.static.conf.example','app.example.test.proxy.conf.example']:
             text=(base/'conf/examples'/template).read_text(encoding='utf-8')
             text=text.replace('listen 80','listen 127.0.0.1:'+str(http_port)).replace('listen 443','listen 127.0.0.1:'+str(https_port))
             text=text.replace('127.0.0.1:9000','127.0.0.1:'+str(backend.server_port))
+            for policy in ['browser-headers','api-cors-server','api-private-server','exposure-guards']:
+                text=text.replace('# include examples/'+policy+'.conf.example;',
+                                  'include examples/'+policy+'.conf.example;')
             if template.startswith('app.'):
                 admin=(base/'conf/examples/admin-location.conf.example').read_text().replace(
                     'allow 127.0.0.1;','allow 192.0.2.123;').replace('127.0.0.1:9000','127.0.0.1:'+str(backend.server_port))
                 text=text.replace('    location / {',admin+'\n    location / {')
-                text=text.replace('proxy_intercept_errors on;','proxy_intercept_errors on;\n        '+cookie_line)
             (base/'conf/conf.d'/template[:-8]).write_text(text,encoding='utf-8')
         for domain in ['example.test','app.example.test']:
             dest=base/'conf/certs'/domain; dest.mkdir(parents=True)
@@ -181,6 +194,19 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             cookie=headers.get('Set-Cookie','').lower()
             check(all(flag in cookie for flag in ['secure','httponly','samesite=lax']),'Selected session-cookie flags failed')
             done('profile:optional-cookie-flags')
+            cookies=headers.get_all('Set-Cookie') or []
+            session=next((item.lower() for item in cookies if item.startswith('SESSION=')), '')
+            csrf=next((item.lower() for item in cookies if item.startswith('XSRF-TOKEN=')), '')
+            check(all(flag in session for flag in ['secure','httponly','samesite=lax'])
+                  and csrf and 'httponly' not in csrf,'Session flags leaked onto a JS-readable CSRF cookie')
+            done('profile:cookie-scope')
+            check(headers.get_all('Cache-Control')==['no-store'] and headers.get('Expires') is None,
+                  'Private API cache policy leaked or duplicated upstream headers')
+            done('profile:api-no-store')
+            check(headers.get('Access-Control-Allow-Origin') is None
+                  and headers.get('Access-Control-Allow-Credentials') is None,
+                  'No-Origin request inherited a backend CORS grant')
+            done('profile:cors-no-origin')
             status,headers,data=request('app.example.test','/upstream-error')
             check(status==500 and b'database password' not in data and b'could not be completed' in data,'Upstream error leaked or status changed')
             done('profile:upstream-errors')
@@ -188,6 +214,51 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             status,headers,data=request('app.example.test','/admin/')
             check(status==403,'Management CIDR restriction failed')
             done('profile:admin-acl')
+            csp="default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'"
+            for host,path,expected in [('example.test','/index.html',200),('example.test','/missing',404),
+                                       ('app.example.test','/echo',200),('app.example.test','/upstream-error',500)]:
+                status,headers,data=request(host,path,headers={'Origin':'https://portal.example.test'})
+                check(status==expected and headers.get_all('Content-Security-Policy')==[csp]
+                      and headers.get_all('Permissions-Policy')==['camera=(), microphone=(), geolocation=()']
+                      and headers.get_all('X-Frame-Options')==['SAMEORIGIN']
+                      and headers.get_all('Strict-Transport-Security')==['max-age=31536000'],
+                      'Browser/identity policy missing or duplicated on success/error response')
+                if host.startswith('app.'):
+                    check(headers.get_all('Access-Control-Allow-Origin')==['https://portal.example.test']
+                          and headers.get_all('Cache-Control')==['no-store'],
+                          'API CORS/cache headers lost on error interception')
+            done('profile:browser-policy')
+            status,headers,data=request('app.example.test','/api/items',method='OPTIONS',headers={
+                'Origin':'https://portal.example.test','Access-Control-Request-Method':'POST',
+                'Access-Control-Request-Headers':'Content-Type, X-XSRF-TOKEN'})
+            check(status==204 and not data
+                  and headers.get_all('Access-Control-Allow-Origin')==['https://portal.example.test']
+                  and headers.get_all('Access-Control-Allow-Credentials')==['true']
+                  and headers.get('Access-Control-Allow-Methods')=='GET, HEAD, POST, OPTIONS'
+                  and headers.get('Access-Control-Allow-Headers')=='Content-Type, Authorization, X-CSRF-TOKEN, X-XSRF-TOKEN'
+                  and 'Origin' in ','.join(headers.get_all('Vary') or []), 'Reviewed CORS preflight failed')
+            status,headers,data=request('app.example.test','/api/items',method='OPTIONS',headers={
+                'Origin':'https://portal.example.test','Access-Control-Request-Method':'POST',
+                'Access-Control-Request-Headers':'X-Arbitrary-Untrusted'})
+            check('X-Arbitrary-Untrusted' not in headers.get('Access-Control-Allow-Headers',''),
+                  'Arbitrary preflight headers were reflected')
+            done('profile:cors-preflight')
+            for origin in ['https://evil.invalid','https://portal.example.test.evil.invalid','null']:
+                status,headers,data=request('app.example.test','/echo',headers={'Origin':origin})
+                check(status==403 and headers.get('Access-Control-Allow-Origin') is None
+                      and headers.get('Access-Control-Allow-Credentials') is None,'Unreviewed CORS origin accepted')
+            status,headers,data=request('app.example.test','/api/items',method='OPTIONS',headers={
+                'Origin':'https://portal.example.test','Access-Control-Request-Method':'PATCH'})
+            check(status==403,'Unreviewed CORS preflight method accepted')
+            done('profile:cors-rejection')
+            for path in ['/actuator/env','/swagger-ui/index.html','/swagger-ui.html','/v3/api-docs','/h2-console/']:
+                status,headers,data=request('app.example.test',path)
+                check(status==404,'Public management/diagnostic path reached the backend: '+path)
+            done('profile:management-denial')
+            (site/'bundle.js.map').write_bytes(b'PRIVATE SOURCE MAP')
+            status,headers,data=request('example.test','/bundle.js.map')
+            check(status==404 and b'PRIVATE SOURCE MAP' not in data,'Source-map publishing guard failed')
+            done('profile:sourcemap-denial')
             for version,name in [('TLSv1.2','tls12'),('TLSv1.3','tls13')]:
                 client=ssl._create_unverified_context()
                 if version=='TLSv1.2': client.options |= getattr(ssl,'OP_NO_TLSv1_3',0)

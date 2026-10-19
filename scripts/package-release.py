@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tarfile
 import zipfile
-from common import ROOT, asset_name, load, sha256, verify_plan, write
+from common import ROOT, SECURITY_DOCS, asset_name, load, packaged_policy_path, sha256, verify_plan, write
 
 TARGETS = {'linux-amd64', 'linux-arm64', 'windows-amd64'}
 
@@ -93,12 +93,14 @@ def main():
         (stage / name / '.keep').touch()
     (stage / 'html/index.html').write_text('<!doctype html><title>Ready</title><p>Ready</p>\n')
     (stage / 'html/__nginxforge_error.html').write_text('<!doctype html><title>Request unavailable</title><p>The request could not be completed.</p>\n')
-    shutil.copy2(str(ROOT/'docs/SECURITY-CONFIG.md'),str(stage/'SECURITY-CONFIG.md'))
+    for name in SECURITY_DOCS:
+        destination = stage / packaged_policy_path(name)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(ROOT/name), str(destination))
     (stage/'security').mkdir()
     shutil.copy2(str(ROOT/'security/kisa-2026.json'),str(stage/'security/kisa-2026.json'))
-    configuration = {p.relative_to(stage).as_posix(): sha256(p) for p in sorted((stage/'conf').rglob('*')) if p.is_file()}
-    configuration['SECURITY-CONFIG.md'] = sha256(stage/'SECURITY-CONFIG.md')
-    configuration['security/kisa-2026.json'] = sha256(stage/'security/kisa-2026.json')
+    configuration = {packaged_policy_path(name): sha256(stage/packaged_policy_path(name))
+                     for name in plan['release_inputs']}
     configuration['html/__nginxforge_error.html'] = sha256(stage/'html/__nginxforge_error.html')
     for name in ['LICENSE', 'THIRD_PARTY_LICENSES.md']:
         shutil.copy2(str(ROOT / name), str(stage / name))

@@ -1,0 +1,21 @@
+# Optional API-only HTTPS SERVER context. Requires api-cors-http.conf.example.
+# Keep all add_header policies at this server level to preserve security/HSTS headers.
+# This policy grants credentialed reads ONLY to the exact reviewed origins.
+# Native clients can omit Origin: CORS is neither authentication nor CSRF protection.
+proxy_hide_header Access-Control-Allow-Origin;
+proxy_hide_header Access-Control-Allow-Credentials;
+proxy_hide_header Access-Control-Allow-Methods;
+proxy_hide_header Access-Control-Allow-Headers;
+proxy_hide_header Access-Control-Expose-Headers;
+proxy_hide_header Access-Control-Max-Age;
+add_header Access-Control-Allow-Origin $forge_cors_origin always;
+add_header Access-Control-Allow-Credentials $forge_cors_credentials always;
+add_header Access-Control-Allow-Methods "GET, HEAD, POST, OPTIONS" always;
+# Fixed list: never echo arbitrary Access-Control-Request-Headers.
+add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-CSRF-TOKEN, X-XSRF-TOKEN" always;
+add_header Access-Control-Max-Age "600" always;
+add_header Vary "Origin" always;
+if ($forge_cors_reject_origin) { return 403; }
+if ($forge_cors_reject_method) { return 403; }
+# A preflight is not authenticated and does not prove a path exists or grants data access.
+if ($request_method = OPTIONS) { return 204; }

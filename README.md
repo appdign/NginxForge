@@ -26,6 +26,8 @@ ARM64를 후속 과제로 미루거나 실패를 무시하지 않습니다. Linu
 - OpenSSL, PCRE2 JIT, zlib, HTTP/2, 리버스 프록시, gzip, rewrite
 - 동일한 NGINX 태그/커밋, 보안 패치와 의존성 잠금을 세 바이너리에 적용
 - KISA 2026 웹 서비스 26개 항목 대응표와 공통 보안 설정·도메인별 HTTPS/프록시 예시 배포
+- NGINX 선택 정책: 정확한 origin CORS, CSP, 세션 쿠키 플래그, private API no-store, 공용 관리 경로 차단
+- 프론트/Spring Boot 코드 점검 프롬프트와 NGINX·프레임워크·운영 설정 담당 범위 제공
 - Linux ELF 인터프리터·동적 섹션 차단, Windows AMD64 PE와 시스템 DLL 의존성 검사
 - 매일 09:00 KST경 공식 Stable 확인, 수동 Mainline/특정 버전/재빌드 지원
 - 모든 필수 검사 통과 → draft 업로드 → 업로드 파일 재검증 → 정식 발행
@@ -75,6 +77,9 @@ GitHub Actions를 활성화하면 `main`의 빌드 관련 변경으로 검증 �
 - [통합 요구사항](docs/REQUIREMENTS.md)
 - [실제 검증 상태와 완료 기준](docs/STATUS.md)
 - [KISA 2026 보안 설정·도메인 샘플과 운영 조치](docs/SECURITY-CONFIG.md)
+- [NGINX·앱 코드·프레임워크·운영 설정 구분](docs/SECURITY-OWNERSHIP.md)
+- [프론트엔드 코드 전용 프롬프트](docs/prompts/FRONTEND-CODE-REVIEW.md)
+- [Spring Boot 코드 전용 프롬프트](docs/prompts/SPRING-BOOT-CODE-REVIEW.md)
 - [라이선스](THIRD_PARTY_LICENSES.md)
 
 로컬 제어 로직 검증:

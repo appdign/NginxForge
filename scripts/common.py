@@ -8,6 +8,8 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
+SECURITY_DOCS = ['docs/SECURITY-CONFIG.md', 'docs/SECURITY-OWNERSHIP.md',
+                 'docs/prompts/FRONTEND-CODE-REVIEW.md', 'docs/prompts/SPRING-BOOT-CODE-REVIEW.md']
 
 def load(path):
     with open(str(path), encoding='utf-8') as stream:
@@ -89,9 +91,14 @@ def asset_name(plan, target):
     return 'nginxforge-{}-{}.{}'.format(archive_version(plan), target,
                                        'zip' if target.startswith('windows') else 'tar.gz')
 
+def packaged_policy_path(name):
+    if name.startswith('config/runtime/'):
+        return 'conf/' + name[len('config/runtime/'):]
+    return name[len('docs/'):] if name.startswith('docs/') else name
+
 def release_inputs():
     paths = [p for p in (ROOT / 'config/runtime').rglob('*') if p.is_file()]
-    paths += [ROOT / 'docs/SECURITY-CONFIG.md', ROOT / 'security/kisa-2026.json']
+    paths += [ROOT / name for name in SECURITY_DOCS] + [ROOT / 'security/kisa-2026.json']
     return {p.relative_to(ROOT).as_posix(): sha256(p) for p in sorted(paths)}
 
 def verify_plan(plan):

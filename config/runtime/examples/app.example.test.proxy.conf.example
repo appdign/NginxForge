@@ -13,6 +13,11 @@ server {
     include snippets/tls.conf;
     include snippets/response-headers.conf;
     add_header Strict-Transport-Security "max-age=31536000" always;
+    # Optional SERVER policies. CORS also needs the HTTP maps enabled in nginx.conf.
+    # include examples/browser-headers.conf.example;
+    # include examples/api-cors-server.conf.example;
+    # include examples/api-private-server.conf.example;
+    # include examples/exposure-guards.conf.example;
     include snippets/server-guards.conf;
     # Add PUT/PATCH/DELETE only for reviewed application endpoints that need them.
     if ($request_method !~ "^(GET|HEAD|POST|OPTIONS)$") { return 405; }

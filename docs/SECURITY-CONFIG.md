@@ -48,9 +48,9 @@
   쓰면 상위 헤더가 상속되지 않을 수 있으므로 `response-headers.conf`를 같은 level에 다시 포함합니다.
   `more_set_headers`/`more_clear_headers`도 자식에 새로 정의하면 상위 모듈 설정의 상속을
   검토해야 합니다. `server_tokens off`만으로 Server 헤더가 완전히 제거되지는 않습니다.
-- CSP와 세션 쿠키 플래그는 `optional-policies.conf.example`의 선택 설정입니다.
-  앱의 스크립트·SSO·iframe·CSRF 동작을 확인한 후 적용합니다. 모든 쿠키에 일괄 HttpOnly를
-  적용하지 않습니다. CORS 전체 허용은 포함하지 않습니다.
+- CSP·Permissions-Policy, 정확한 origin CORS, 세션 쿠키 플래그, private API no-store,
+  공용 관리/소스맵 경로 차단은 아래 선택 include 파일로 제공합니다. 앱의 스크립트·SSO·
+  iframe·CSRF 동작을 확인한 후 적용합니다. 모든 쿠키에 일괄 HttpOnly를 적용하지 않습니다.
 - 프록시 예시는 외부의 X-Forwarded-For/Forwarded 값을 신뢰하지 않고 덮어씁니다.
   실제 로드밸런서 뒤에서는 정확한 trusted CIDR만 real-IP 설정에 등록합니다.
 - 프록시의 오류 가림은 앱/API 오류 스키마에 영향을 줄 수 있습니다. 기존 상태 코드와 인증
@@ -59,6 +59,84 @@
   파일 크기·일일 총량·권한·동시성은 앱/저장소 정책으로 확인합니다.
 - 기본 gzip은 비활성화입니다. 비밀이 포함되지 않는 공개 정적 리소스에 한해 성능 정책에 맞게
   재활성화할 수 있습니다. rate/connection 제한은 실제 트래픽과 NAT 사용자 수에 맞게 조정합니다.
+
+## NGINX로 모으는 선택 정책
+
+다음 파일은 **server 블록이 아닌 include 조각**입니다. `conf/conf.d/`에 직접 복사하지 않습니다.
+실제 도메인 샘플의 HTTPS `server`에 있는 주석 include를 검토 후 활성화합니다.
+애플리케이션 코드 점검에서 이 HTTP 설정을 중복 작업으로 요구하지 않습니다.
+
+| include 파일 (`conf/examples/` 아래) | 적용 문맥 | 담당 정책 |
+| --- | --- | --- |
+| `browser-headers.conf.example` | HTTPS server | self-only 출발 CSP, 카메라/마이크/위치 기능 제한 |
+| `api-cors-http.conf.example` | http, 한 번 | 정확한 허용 origin과 preflight 메소드 map |
+| `api-cors-server.conf.example` | API 전용 HTTPS server | 허용 출처 CORS 응답, preflight, 미허용 origin/메소드 차단 |
+| `api-private-server.conf.example` | private API HTTPS server | JSESSIONID/SESSION 플래그와 Cache-Control: no-store |
+| `exposure-guards.conf.example` | server | 기본 Actuator/Swagger/H2 및 .map 공개 경로 차단 |
+
+프록시 샘플에서 선택 파일을 함께 활성화하는 위치는 다음과 같습니다. 기존의
+`response-headers.conf`와 HSTS도 **같은 server level**에 둡니다.
+
+```nginx
+# nginx.conf의 http 안: CORS를 선택할 때 한 번 활성화
+include examples/api-cors-http.conf.example;
+
+# 실제 API 도메인의 HTTPS server 안: 필요한 정책만 선택
+include examples/browser-headers.conf.example;
+include examples/api-cors-server.conf.example;
+include examples/api-private-server.conf.example;
+include examples/exposure-guards.conf.example;
+```
+
+- CORS map 두 목록의 `https://portal.example.test`, `https://app.example.test`를 실제
+  **scheme/host/port**로 모두 바꿉니다. API 자신의 origin도 필요한 경우 등록합니다.
+  wildcard나 요청 Origin의 무조건 반사는 사용하지 않습니다. 정책이 다른 가상 호스트에는
+  map 변수 이름과 값을 분리해야 합니다. 허용 메소드도 실제 API와 함께 조정합니다.
+- credentialed CORS 응답은 허용 origin에만 보내며 upstream CORS 헤더를 제거하여
+  중복/상충 응답을 방지합니다. 허용 origin이 없는 일반 native 요청은 CORS 권한을 받지
+  않습니다. 알 수 없는 nonempty Origin은 403입니다. 신뢰 SSO form POST 등은 별도 검토합니다.
+- preflight는 backend 인증 없이 204로 처리합니다. 허용 요청 헤더는 고정 목록이고
+  임의 `Access-Control-Request-Headers`를 반사하지 않습니다. 추가 헤더는 목록에 명시합니다.
+  preflight 응답 성공은 실제 endpoint 존재·로그인·데이터 접근 허용을 뜻하지 않습니다.
+  CORS는 브라우저 정책이며 앱 인증·인가·CSRF 검증을 대체하지 않습니다. Spring의 기존
+  CORS 필터가 요청을 먼저 거부하는 경우에도 중복 정책을 운영 설정에서 조정해야 합니다.
+- CSP의 self-only 출발값은 외부 JS/CSS/이미지/프레임 및 다른 origin API 호출을 막을 수
+  있습니다. 실제 출처를 필요한 지시문에 제한적으로 추가하고 SSO form-action도 확인합니다.
+  처음에는 헤더 이름을 `Content-Security-Policy-Report-Only`로 바꿔 확인할 수 있으나,
+  이 상태는 **차단 적용 완료가 아닙니다**. JS로 생성한 meta만으로 동일한 기능을 주장하지 않습니다.
+- NGINX가 해당 정책의 발행 주체가 될 때만 backend CSP/Permissions-Policy를 숨깁니다.
+  더 강한 기존 정책을 버리지 않도록 대조합니다. nonce/hash가 필요한 앱은 빌드/SSR의
+  연동 코드가 필요할 수 있으며 고정 nonce는 사용하지 않습니다.
+- private API 정책은 기존 upstream Cache-Control/Expires를 제거하고 성공/오류 모두
+  no-store를 적용합니다. 공개 정적 파일 사이트 전체에 적용하지 않습니다. 앱의 메모리 상태나
+  service worker가 직접 저장한 데이터를 삭제하는 기능은 아닙니다.
+- 쿠키 플래그는 지정한 세션 쿠키 두 이름만 처리합니다. JS가 읽는 XSRF-TOKEN에는
+  HttpOnly를 붙이지 않습니다. 실제 이름을 맞추고, cross-site 로그인/API가 필요하면
+  SameSite=None+Secure 및 앱 CSRF 정책을 함께 검토합니다. 발급·만료·폐기는 앱/IdP 책임입니다.
+- 관리 경로 차단은 샘플의 기본 URL 기준입니다. context-path/관리 base path 변경과 별도
+  관리 포트·IPv6·backend 직접 접근은 별도로 막습니다. 외부 health/metrics가 필요하면
+  전용 제한 listener/vhost를 사용합니다. 소스맵 차단은 소스의 취약점이나 비밀값을 제거하지 않습니다.
+
+선택 파일 안에는 location별 add_header를 추가하지 않습니다. 사용자가 자식 location에
+새 add_header를 넣으면 상위 헤더가 사라질 수 있으므로 선택한 **전체 헤더 정책**을
+같은 level에 다시 포함하고 정상·오류·preflight 응답을 검사해야 합니다.
+
+실행 검사는 패키지에서 꺼낸 선택 파일을 실제로 활성화하여 헤더 중복 제거, 허용/거부 CORS,
+preflight 고정 헤더, 세션/CSRF 쿠키 구분, no-store, 관리/소스맵 경로 차단을 확인합니다.
+이는 실제 프런트 앱의 브라우저 동작이나 고객사 SSO 호환성을 대신 검증한 결과는 아닙니다.
+
+## 애플리케이션에는 코드 작업만 남기기
+
+[보안 담당 범위](SECURITY-OWNERSHIP.md)와 다음 프롬프트를 사용합니다.
+
+- [프론트엔드 코드 전용 점검·수정](prompts/FRONTEND-CODE-REVIEW.md)
+- [Spring Boot 코드 전용 점검·수정](prompts/SPRING-BOOT-CODE-REVIEW.md)
+
+세 문서는 소스 저장소와 세 플랫폼 패키지 모두에 포함됩니다. 세션 TTL·표준 JWT 검증·
+PasswordEncoder·Actuator 노출·프로파일처럼 프레임워크 설정으로 해결되는 항목은
+별도 설정 표로 분리합니다. 이를 NGINX 옵션이라고 부르지 않습니다. OS 계정/ACL,
+비밀값 주입·패치·인증서 관리도 운영 담당으로 남깁니다. 객체별 인가·XSS 안전 출력·
+파일 내용/경로 검증·업무 할당량·일회성 토큰 소비·민감 데이터 응답/로그 처리는 코드 작업입니다.
 
 ## 운영체제별 권한과 링크
 

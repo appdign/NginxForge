@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from common import canonical_digest, find_release, github, load, release_inputs, sha256, write, asset_name, verify_plan
+from common import canonical_digest, find_release, github, load, packaged_policy_path, release_inputs, sha256, write, asset_name, verify_plan
 
 def module(name):
     spec = importlib.util.spec_from_file_location(name.replace('-', '_'), str(ROOT / 'scripts' / (name + '.py')))
@@ -225,8 +225,7 @@ class ReleaseGate(unittest.TestCase):
         for target in ['linux-amd64','linux-arm64','windows-amd64']:
             binary = pe() if target.startswith('windows') else elf(183 if target.endswith('arm64') else 62)
             name = 'nginx.exe' if target.startswith('windows') else 'nginx'
-            config_files={('conf/'+key[len('config/runtime/'):]) if key.startswith('config/runtime/')
-                          else ('SECURITY-CONFIG.md' if key=='docs/SECURITY-CONFIG.md' else key):
+            config_files={packaged_policy_path(key):
                           (ROOT/key).read_bytes() for key in self.plan['release_inputs']}
             config_files['html/__nginxforge_error.html']=b'generic error fixture'
             metadata = dict(target=target, plan_digest=self.plan['digest'],
