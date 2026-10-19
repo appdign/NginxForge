@@ -10,17 +10,18 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[1]
 SECURITY_DOCS = ['docs/SECURITY-CONFIG.md', 'docs/SECURITY-OWNERSHIP.md',
                  'docs/prompts/FRONTEND-CODE-REVIEW.md', 'docs/prompts/SPRING-BOOT-CODE-REVIEW.md']
-PLATFORM_POLICY_MARKER = b'    # NGINXFORGE_PLATFORM_POLICY'
+PLATFORM_POLICY_SOURCE = 'config/runtime/policies/server/symlinks.conf'
+PLATFORM_POLICY_MARKER = b'# NGINXFORGE_PLATFORM_POLICY'
 
-def render_nginx_config(source, target):
+def render_platform_policy(source, target):
     if target not in {'linux-amd64', 'linux-arm64', 'windows-amd64'}:
         raise ValueError('Unsupported configuration target')
     if source.count(PLATFORM_POLICY_MARKER) != 1:
-        raise ValueError('Integrated nginx.conf must have exactly one platform marker')
-    policy = (b'    # Linux: native openat/fstatat link restriction.\n    disable_symlinks on;'
+        raise ValueError('Symlink policy must have exactly one platform marker')
+    policy = (b'# Linux: native openat/fstatat link restriction.\ndisable_symlinks on;'
               if target.startswith('linux-') else
-              b'    # Windows: disable_symlinks is unavailable.\n'
-              b'    # Require OS ACL and reparse-point review; see SECURITY-CONFIG.md, WEB-12.')
+              b'# Windows: disable_symlinks is unavailable.\n'
+              b'# Require OS ACL and reparse-point review; see SECURITY-CONFIG.md, WEB-12.')
     return source.replace(PLATFORM_POLICY_MARKER, policy)
 
 def load(path):

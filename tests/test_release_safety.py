@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from common import canonical_digest, find_release, github, load, packaged_policy_path, render_nginx_config, release_inputs, sha256, write, asset_name, verify_plan
+from common import PLATFORM_POLICY_SOURCE, canonical_digest, find_release, github, load, packaged_policy_path, render_platform_policy, release_inputs, sha256, write, asset_name, verify_plan
 
 def module(name):
     spec = importlib.util.spec_from_file_location(name.replace('-', '_'), str(ROOT / 'scripts' / (name + '.py')))
@@ -123,16 +123,16 @@ class UpstreamSafety(unittest.TestCase):
             with self.assertRaises(RuntimeError): find_release('example/repo','target')
 
 class SourceSafety(unittest.TestCase):
-    def test_integrated_platform_policy_is_required_and_inline(self):
-        source=(ROOT/'config/runtime/nginx.conf').read_bytes()
-        linux=render_nginx_config(source,'linux-arm64')
-        windows=render_nginx_config(source,'windows-amd64')
-        self.assertIn(b'    disable_symlinks on;', linux)
-        self.assertNotIn(b'    disable_symlinks on;', windows)
+    def test_platform_policy_is_required_and_os_specific(self):
+        source=(ROOT/PLATFORM_POLICY_SOURCE).read_bytes()
+        linux=render_platform_policy(source,'linux-arm64')
+        windows=render_platform_policy(source,'windows-amd64')
+        self.assertIn(b'disable_symlinks on;', linux)
+        self.assertNotIn(b'disable_symlinks on;', windows)
         self.assertNotIn(b'NGINXFORGE_PLATFORM_POLICY', linux+windows)
-        marker=b'    # NGINXFORGE_PLATFORM_POLICY'
+        marker=b'# NGINXFORGE_PLATFORM_POLICY'
         for invalid in [source.replace(marker,b''), source+b'\n'+marker]:
-            with self.assertRaises(ValueError): render_nginx_config(invalid,'linux-amd64')
+            with self.assertRaises(ValueError): render_platform_policy(invalid,'linux-amd64')
 
     def archive(self, name, kind=None):
         data = io.BytesIO()
@@ -228,9 +228,9 @@ class ReleaseGate(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.base = Path(self.temp.name)
-        source_config=self.base/'config/runtime/nginx.conf'
+        source_config=self.base/PLATFORM_POLICY_SOURCE
         source_config.parent.mkdir(parents=True)
-        source_config.write_bytes((ROOT/'config/runtime/nginx.conf').read_bytes())
+        source_config.write_bytes((ROOT/PLATFORM_POLICY_SOURCE).read_bytes())
         self.artifacts = self.base/'artifacts'
         self.reports = self.base/'reports'
         self.artifacts.mkdir()
@@ -241,7 +241,7 @@ class ReleaseGate(unittest.TestCase):
             name = 'nginx.exe' if target.startswith('windows') else 'nginx'
             config_files={packaged_policy_path(key):
                           (ROOT/key).read_bytes() for key in self.plan['release_inputs']}
-            config_files['conf/nginx.conf']=render_nginx_config((ROOT/'config/runtime/nginx.conf').read_bytes(),target)
+            config_files[packaged_policy_path(PLATFORM_POLICY_SOURCE)]=render_platform_policy((ROOT/PLATFORM_POLICY_SOURCE).read_bytes(),target)
             config_files['html/__nginxforge_error.html']=b'generic error fixture'
             metadata = dict(target=target, plan_digest=self.plan['digest'],
                             source_revision=self.plan['source_revision'], nginx=self.plan['nginx'],

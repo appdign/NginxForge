@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tarfile
 import zipfile
-from common import ROOT, SECURITY_DOCS, asset_name, load, packaged_policy_path, render_nginx_config, sha256, verify_plan, write
+from common import ROOT, SECURITY_DOCS, PLATFORM_POLICY_SOURCE, asset_name, load, packaged_policy_path, render_platform_policy, sha256, verify_plan, write
 
 TARGETS = {'linux-amd64', 'linux-arm64', 'windows-amd64'}
 
@@ -84,8 +84,8 @@ def main():
     (stage / binary_name).chmod(0o755)
     shutil.copytree(str(ROOT / 'config/runtime'), str(stage / 'conf'))
     linux = args.target.startswith('linux-')
-    (stage/'conf/nginx.conf').write_bytes(render_nginx_config(
-        (ROOT/'config/runtime/nginx.conf').read_bytes(), args.target))
+    (stage/packaged_policy_path(PLATFORM_POLICY_SOURCE)).write_bytes(render_platform_policy(
+        (ROOT/PLATFORM_POLICY_SOURCE).read_bytes(), args.target))
     for name in ['logs', 'temp', 'html']:
         (stage / name).mkdir()
         (stage / name / '.keep').touch()

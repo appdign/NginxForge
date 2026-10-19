@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import socket
 import ssl
@@ -20,7 +21,8 @@ COMMON_CHECKS = ['profile:' + name for name in [
     'proxy-fixed-destination', 'forwarded-headers', 'upstream-errors', 'uploads-denied',
     'session-cookie-flags', 'admin-acl', 'tls12', 'tls13', 'rate-limit',
     'browser-policy', 'cors-preflight', 'cors-rejection', 'cors-no-origin',
-    'api-no-store', 'management-denial', 'sourcemap-denial', 'cookie-scope', 'integrated-layout']]
+    'api-no-store', 'management-denial', 'sourcemap-denial', 'cookie-scope', 'policy-layout',
+    'policy-toggle-syntax', 'policy-toggle-isolation']]
 
 def platform_checks(target):
     return ['profile:linux-symlink-denial'] if target.startswith('linux-') else ['profile:windows-link-review-documented']
@@ -58,12 +60,16 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
     check(len(mapping['controls'])==26, 'Incomplete KISA applicability matrix')
     done('profile:package-integrity')
     config_files={p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf').rglob('*') if p.is_file()}
-    check(config_files=={'nginx.conf','mime.types','conf.d/site.conf.example','conf.d/README.md'},
-          'Integrated configuration must not contain per-option fragments: '+repr(config_files))
+    policy_files={p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf/policies').rglob('*.conf')}
+    source_policies={p.relative_to(root/'config/runtime').as_posix() for p in (root/'config/runtime/policies').rglob('*.conf')}
+    check(policy_files==source_policies and len(policy_files)==32, 'Missing or unexpected policy files')
+    check(config_files=={'nginx.conf','mime.types','conf.d/site.conf.example','conf.d/README.md'}|policy_files,
+          'Unexpected configuration files: '+repr(config_files))
     site_template=(runtime/'conf/conf.d/site.conf.example').read_text(encoding='utf-8')
-    check('include ' not in '\n'.join(line for line in site_template.splitlines() if not line.lstrip().startswith('#')),
-          'Domain configuration still requires option includes')
-    done('profile:integrated-layout')
+    main_template=(runtime/'conf/nginx.conf').read_text(encoding='utf-8')
+    selected=set(re.findall(r'^\s*include (policies/[^;]+);',main_template+'\n'+site_template,re.M))
+    check(selected==policy_files, 'Policies must have explicit ON switches, without wildcard loading')
+    done('profile:policy-layout')
     def port():
         with socket.socket() as sock:
             sock.bind(('127.0.0.1',0))
@@ -93,11 +99,15 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
         config = (base/'conf/nginx.conf').read_text(encoding='utf-8')
         config='daemon off;\nmaster_process off;\n'+config.replace('127.0.0.1:8080','127.0.0.1:'+str(preview_port))
         (base/'conf/nginx.conf').write_text(config,encoding='utf-8')
-        # Activate the SINGLE shipped site as-is. Only bind ports/backend/test CIDR differ.
+        # Activate the shipped switch catalog as-is. Only ports/backend/test CIDR differ.
         text=site_template.replace('listen 80','listen 127.0.0.1:'+str(http_port)).replace('listen 443','listen 127.0.0.1:'+str(https_port))
         text=text.replace('127.0.0.1:9000','127.0.0.1:'+str(backend.server_port))
-        text=text.replace('allow 127.0.0.1;','allow 192.0.2.123;')
         (base/'conf/conf.d/site.conf').write_text(text,encoding='utf-8')
+        defaults=base/'conf/policies/http/default-listeners.conf'
+        defaults.write_text(defaults.read_text(encoding='utf-8').replace('listen 80','listen 127.0.0.1:'+str(http_port))
+                            .replace('listen 443','listen 127.0.0.1:'+str(https_port)),encoding='utf-8')
+        admin=base/'conf/policies/server/admin-acl.conf'
+        admin.write_text(admin.read_text(encoding='utf-8').replace('allow 127.0.0.1;','allow 192.0.2.123;'),encoding='utf-8')
         for domain in ['example.test','app.example.test']:
             dest=base/'conf/certs'/domain; dest.mkdir(parents=True)
             shutil.copy2(str(root/'tests/fixtures/cert.pem'),str(dest/'fullchain.pem'))
@@ -107,6 +117,21 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
         result=subprocess.run(command+['-t'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,timeout=30)
         check(result.returncode==0,result.stdout)
         done('profile:configuration')
+        def switched_off(source, policies):
+            return '\n'.join('# '+line if any(line.lstrip().startswith('include '+name+';') for name in policies)
+                             else line for line in source.splitlines())+'\n'
+        try:
+            # Each individual OFF switch and the combined OFF state must parse natively.
+            for disabled in [{name} for name in sorted(policy_files)]+[policy_files]:
+                (base/'conf/nginx.conf').write_text(switched_off(config,disabled),encoding='utf-8')
+                (base/'conf/conf.d/site.conf').write_text(switched_off(text,disabled),encoding='utf-8')
+                result=subprocess.run(command+['-t'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+                                      universal_newlines=True,timeout=30)
+                check(result.returncode==0,'OFF '+repr(sorted(disabled))+': '+result.stdout)
+        finally:
+            (base/'conf/nginx.conf').write_text(config,encoding='utf-8')
+            (base/'conf/conf.d/site.conf').write_text(text,encoding='utf-8')
+        done('profile:policy-toggle-syntax')
         log=open(str(base/'process.log'),'wb')
         def request(host,path='/',method='GET',headers=None,https=True,paced=True):
             # Isolate functional cases from the real shipped 10 requests/s bucket.
@@ -130,15 +155,25 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             status,headers,data=request('example.test',path)
             check(status in (400,403,404), 'Forbidden resource response: '+str((path,status,data)))
             check(b'PRIVATE FIXTURE' not in data and b'OUTSIDE WEB ROOT' not in data and b'UPLOAD MUST' not in data,'Sensitive file served')
-        try:
+        def stop_server():
+            if process is not None and process.poll() is None:
+                try:
+                    subprocess.run(command+['-s','quit'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=15)
+                    process.wait(timeout=10)
+                except (subprocess.TimeoutExpired, OSError):
+                    process.kill(); process.wait(timeout=10)
+        def start_server():
+            nonlocal process
             process=subprocess.Popen(command,stdout=log,stderr=log,
                 **({'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt' else {}))
             for _ in range(100):
                 check(process.poll() is None,'Profile server exited: '+(base/'process.log').read_text())
                 try:
-                    with socket.create_connection(('127.0.0.1',http_port),timeout=.2): break
+                    with socket.create_connection(('127.0.0.1',http_port),timeout=.2): return
                 except OSError: time.sleep(.1)
-            else: raise AssertionError('Profile server did not start')
+            raise AssertionError('Profile server did not start')
+        try:
+            start_server()
             status,headers,data=request('example.test','/safe?x=1',https=False)
             check(status==308 and headers.get('Location')=='https://example.test/safe?x=1','HTTPS canonical redirect failed')
             done('profile:http-redirect')
@@ -269,7 +304,7 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             if target.startswith('linux-'):
                 blocked('/linked.txt'); done('profile:linux-symlink-denial')
             else:
-                policy=(runtime/'conf/nginx.conf').read_text()
+                policy=(runtime/'conf/policies/server/symlinks.conf').read_text()
                 check('requires_windows_os_acl_review'==metadata['security_capabilities']['symlink_enforcement']
                       and not any(line.strip().startswith('disable_symlinks ') for line in policy.splitlines()),
                       'Windows must not claim native link restriction')
@@ -281,12 +316,42 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
                 if status==429: limited=True; break
             check(limited,'Per-client request limit did not produce 429')
             done('profile:rate-limit')
+
+            # Disable one shipped policy at a time; other policies must remain active.
+            for name in ['csp','nosniff','cors','private-cache','session-cookies','admin-acl',
+                         'generic-errors','identity','secret-files','request-rate']:
+                stop_server()
+                disabled={'policies/server/'+name+'.conf'}
+                (base/'conf/conf.d/site.conf').write_text(switched_off(text,disabled),encoding='utf-8')
+                start_server()
+                path='/admin/' if name=='admin-acl' else '/upstream-error' if name=='generic-errors' else '/echo'
+                origin='https://evil.invalid' if name=='cors' else 'https://portal.example.test'
+                status,headers,data=request('app.example.test',path,headers={'Origin':origin})
+                check(status==(500 if name=='generic-errors' else 200),'OFF policy changed routing: '+name)
+                check(headers.get_all('X-Frame-Options')==['SAMEORIGIN']
+                      and headers.get_all('Strict-Transport-Security')==['max-age=31536000'],
+                      'Disabling one policy removed unrelated headers: '+name)
+                check(headers.get_all('Content-Security-Policy')==["default-src *" if name=='csp' else csp],
+                      'CSP toggle isolation failed: '+name)
+                check(headers.get('X-Content-Type-Options')==(None if name=='nosniff' else 'nosniff'),
+                      'MIME header toggle isolation failed: '+name)
+                check(headers.get('Cache-Control')==('public, max-age=86400' if name=='private-cache' else 'no-store'),
+                      'Cache toggle isolation failed: '+name)
+                check(headers.get('Access-Control-Allow-Origin')==('*' if name=='cors' else origin),
+                      'CORS toggle isolation failed: '+name)
+                cookie=next(item.lower() for item in headers.get_all('Set-Cookie') if item.startswith('JSESSIONID='))
+                check(('httponly' in cookie)==(name!='session-cookies'),'Cookie toggle isolation failed')
+                check((headers.get('Server') is not None)==(name=='identity'),'Identity toggle isolation failed')
+                check((b'database password' in data)==(name=='generic-errors'),'Error interception toggle failed')
+                if name=='secret-files':
+                    status,headers,data=request('example.test','/backup.bak')
+                    check(status==200 and b'PRIVATE FIXTURE' in data,'File guard did not switch OFF')
+                if name=='request-rate':
+                    for _ in range(40):
+                        status,headers,data=request('example.test','/index.html',paced=False)
+                        check(status==200,'Rate limiting remained active after its switch was OFF')
+            done('profile:policy-toggle-isolation')
         finally:
-            if process is not None and process.poll() is None:
-                try:
-                    subprocess.run(command+['-s','quit'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=15)
-                    process.wait(timeout=10)
-                except Exception:
-                    process.kill(); process.wait(timeout=10)
+            stop_server()
             log.close()
             backend.shutdown(); backend.server_close()

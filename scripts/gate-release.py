@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 import struct
 import sys
-from common import ROOT, asset_name, load, packaged_policy_path, render_nginx_config, sha256, verify_plan, write
+from common import ROOT, PLATFORM_POLICY_SOURCE, asset_name, load, packaged_policy_path, render_platform_policy, sha256, verify_plan, write
 
 def module(name, path):
     spec = importlib.util.spec_from_file_location(name, str(path))
@@ -86,8 +86,8 @@ def gate(plan, artifacts, reports, output):
             source_name = source_by_package.get(name)
             if source_name in plan['release_inputs']:
                 expected_digest = plan['release_inputs'][source_name]
-                if source_name == 'config/runtime/nginx.conf':
-                    expected_digest = hashlib.sha256(render_nginx_config((ROOT/source_name).read_bytes(), target)).hexdigest()
+                if source_name == PLATFORM_POLICY_SOURCE:
+                    expected_digest = hashlib.sha256(render_platform_policy((ROOT/source_name).read_bytes(), target)).hexdigest()
                 if digest != expected_digest:
                     raise ValueError('Packaged policy differs from resolved source: '+name)
         for key in embedded:
@@ -118,7 +118,7 @@ Runtime tests passed on Ubuntu 22.04/24.04 and Rocky Linux 8/9 for BOTH Linux ar
 Included: headers-more {headers}, OpenSSL {openssl}, PCRE2 {pcre2}, zlib {zlib}.
 Patch: remove three built-in error-page identity footers. HTTP/HTTPS header filtering, TLS 1.2/1.3, HTTP/2 negotiation, proxy, gzip and rewrite are tested.
 Includes reviewed KISA 2026 configuration examples and a 26-control applicability matrix. Examples do not certify compliance: OS ACLs, credentials, certificates, backend/application controls and production activation require review. Windows link enforcement requires OS controls.
-Security is integrated into nginx.conf and one complete conf.d/site.conf.example: CORS/preflights, CSP/browser features, named session-cookie flags, private API no-store, admin CIDRs and public management/source-map denial are active, with no per-option files to assemble. Replace deployment values and supply real certificates before activating site.conf. Code-only frontend/Spring Boot review prompts and an ownership guide are included.
+Security policies are ON by default and individually selectable through commented include lines in conf.d/site.conf.example. Each policy is packaged under conf/policies; TLS is selected in nginx.conf because it needs HTTP context. Default execution, each individual OFF configuration, and representative OFF/ON isolation are tested. Replace deployment values and supply real certificates before activating site.conf. Code-only frontend/Spring Boot review prompts and an ownership guide are included.
 All source commits, SHA-256 digests, configure options and per-platform test evidence are in build-manifest.json.
 
 Linux tests use native containers sharing the runner kernel. Customer Windows Server installation, production load, service integration and customer kernel testing are separate. Windows retains upstream NGINX/Windows scalability and service limitations. Configuration, certificates and log directories are external runtime resources. Header hiding does not fix vulnerabilities.

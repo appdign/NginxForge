@@ -1,25 +1,24 @@
-# COMPLETE integrated site. No per-option includes or disabled security directives.
-# DEPLOYMENT VALUES: replace domains, certificate paths, frontend root, fixed backend,
-# administrator CIDRs, and the origins/CSP/cookie values in nginx.conf.
-# Rename ONLY this file to site.conf after supplying real certificates.
-# Install these default listeners once per address/port, even when adding more domains.
-server {
-    listen 80 default_server;
-    server_name _;
-    return 444;
-}
-server {
-    listen 443 ssl default_server;
-    server_name _;
-    ssl_reject_handshake on;
-    return 444;
+# NginxForge 설정별 ON/OFF 목록. 기본값은 모든 보안 정책 ON.
+# ON : include policies/server/csp.conf;
+# OFF: # include policies/server/csp.conf;
+# 프론트와 API의 include를 각각 제어합니다. 정책 내부 파일도 함께 배포하세요.
+# DEPLOYMENT VALUES: 실제 도메인, 인증서, 프론트 root, backend 주소.
+# CORS origin은 nginx.conf, CSP/관리자 CIDR/쿠키는 해당 policies 파일에서 수정합니다.
+# 인증서를 준비한 뒤 이 파일 하나를 site.conf로 이름을 바꿉니다.
+
+# HTTP 문맥: 알 수 없는 Host/SNI 거부. 주소/포트마다 한 번만 설치합니다.
+include policies/http/default-listeners.conf; # ON: 기본 Host/SNI 거부
+
+# DEPLOYMENT VALUE: 고정 Spring Boot 목적지. 요청 입력으로 목적지를 정하지 않습니다.
+upstream forge_spring {
+    server 127.0.0.1:9000;
 }
 
-# Frontend: static site, HTTPS, security headers and diagnostic/file exposure guards.
 server {
     listen 80;
     server_name example.test;
-    return 308 https://example.test$request_uri;
+    include policies/server/https-redirect.conf; # ON: 프론트 HTTPS 이동
+    location / { return 404; } # HTTPS 이동 OFF 시 평문 서비스 대신 404
 }
 server {
     listen 443 ssl;
@@ -27,25 +26,40 @@ server {
     server_name example.test;
     ssl_certificate certs/example.test/fullchain.pem;
     ssl_certificate_key certs/example.test/privkey.pem;
-    add_header Strict-Transport-Security "max-age=31536000" always;
     root sites/example.test/public;
-    if ($request_method !~ "^(GET|HEAD)$") { return 405; }
-    location = /__nginxforge_error.html { internal; root html; }
-    location ~ (^|/)\. { return 404; }
-    location ~* ^/(conf|config|logs|temp|private|secrets|uploads|WEB-INF|META-INF)(/|$) { return 404; }
-    location ~* \.(conf|config|ini|log|sql|bak|old|orig|save|swp|pem|key|pfx|p12|yaml|yml|env)$ { return 404; }
-    location ~* \.(php|phtml|cgi|pl|py|jsp|jspx|asp|aspx|ashx|asmx|shtml|shtm|exe|dll|bat|cmd|ps1)(/|$) { return 404; }
-    location ~* ^/(actuator|swagger-resources|v2/api-docs|v3/api-docs|h2-console)(/|$) { return 404; }
-    location ~* ^/swagger-ui(\.html|/|$) { return 404; }
-    location ~* \.map$ { return 404; }
+
+    # 프론트 보안 스위치: 끄려는 include 줄 앞에 #을 붙입니다.
+    include policies/server/identity.conf; # ON: 서버·제품 버전 숨김
+    include policies/server/directory-listing.conf; # ON: 디렉터리 목록 비활성화
+    include policies/server/ssi.conf; # ON: SSI 비활성화
+    include policies/server/compression.conf; # ON: 응답 압축 비활성화
+    include policies/server/body-size.conf; # ON: 요청 본문 5 MiB 제한
+    include policies/server/timeouts.conf; # ON: 클라이언트 시간·헤더 제한
+    include policies/server/request-rate.conf; # ON: IP당 요청 빈도 제한
+    include policies/server/connection-limit.conf; # ON: IP당 동시 연결 제한
+    include policies/server/generic-errors.conf; # ON: 오류 본문 가림·프록시 오류 처리
+    include policies/server/symlinks.conf; # ON: Linux 링크 차단 / Windows OS 점검 안내
+    include policies/server/nosniff.conf; # ON: MIME 추측 방지
+    include policies/server/frame-options.conf; # ON: 프레임 삽입 제한
+    include policies/server/referrer-policy.conf; # ON: Referrer 정보 제한
+    include policies/server/csp.conf; # ON: CSP 콘텐츠 출처 제한
+    include policies/server/permissions-policy.conf; # ON: 카메라·마이크·위치 제한
+    include policies/server/hsts.conf; # ON: HTTPS HSTS
+    include policies/server/methods-static.conf; # ON: GET/HEAD만 허용
+    include policies/server/secret-files.conf; # ON: 숨김·설정·키·백업 파일 차단
+    include policies/server/script-files.conf; # ON: 스크립트·실행 파일 경로 차단
+    include policies/server/uploads.conf; # ON: 업로드 직접 접근 차단
+    include policies/server/management-paths.conf; # ON: Actuator·Swagger·H2 노출 차단
+    include policies/server/sourcemaps.conf; # ON: 소스맵 공개 차단
+
     location / { try_files $uri $uri/ =404; }
 }
 
-# Spring Boot: fixed local backend, exact-origin CORS, private no-store and admin ACL.
 server {
     listen 80;
     server_name app.example.test;
-    return 308 https://app.example.test$request_uri;
+    include policies/server/https-redirect.conf; # ON: API HTTPS 이동
+    location / { return 404; }
 }
 server {
     listen 443 ssl;
@@ -53,35 +67,36 @@ server {
     server_name app.example.test;
     ssl_certificate certs/app.example.test/fullchain.pem;
     ssl_certificate_key certs/app.example.test/privkey.pem;
-    add_header Strict-Transport-Security "max-age=31536000" always;
-    add_header Cache-Control "no-store" always;
-    add_header Access-Control-Allow-Origin $forge_cors_origin always;
-    add_header Access-Control-Allow-Credentials $forge_cors_credentials always;
-    add_header Access-Control-Allow-Methods "GET, HEAD, POST, OPTIONS" always;
-    add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-CSRF-TOKEN, X-XSRF-TOKEN" always;
-    add_header Access-Control-Max-Age "600" always;
-    add_header Vary "Origin" always;
-    if ($forge_cors_reject_origin) { return 403; }
-    if ($forge_cors_reject_method) { return 403; }
-    if ($request_method !~ "^(GET|HEAD|POST|OPTIONS)$") { return 405; }
-    if ($request_method = OPTIONS) { return 204; }
-    location = /__nginxforge_error.html { internal; root html; }
-    location ~ (^|/)\. { return 404; }
-    location ~* ^/(conf|config|logs|temp|private|secrets|uploads|WEB-INF|META-INF)(/|$) { return 404; }
-    location ~* \.(conf|config|ini|log|sql|bak|old|orig|save|swp|pem|key|pfx|p12|yaml|yml|env)$ { return 404; }
-    location ~* \.(php|phtml|cgi|pl|py|jsp|jspx|asp|aspx|ashx|asmx|shtml|shtm|exe|dll|bat|cmd|ps1)(/|$) { return 404; }
-    location ~* ^/(actuator|swagger-resources|v2/api-docs|v3/api-docs|h2-console)(/|$) { return 404; }
-    location ~* ^/swagger-ui(\.html|/|$) { return 404; }
-    location ~* \.map$ { return 404; }
-    location ~ ^/(admin|api/admin)(/|$) {
-        # DEPLOYMENT VALUE: add the actual management/VPN CIDRs before deny all.
-        allow 127.0.0.1;
-        allow ::1;
-        deny all;
-        # Keep Spring Boot authentication/authorization enabled behind this IP gate.
-        proxy_pass http://127.0.0.1:9000;
-    }
-    location / {
-        proxy_pass http://127.0.0.1:9000;
-    }
+
+    # Spring Boot API 보안 스위치: 프론트와 독립적으로 제어합니다.
+    include policies/server/identity.conf; # ON: 서버·제품 버전 숨김
+    include policies/server/directory-listing.conf; # ON: 디렉터리 목록 비활성화
+    include policies/server/ssi.conf; # ON: SSI 비활성화
+    include policies/server/compression.conf; # ON: 응답 압축 비활성화
+    include policies/server/body-size.conf; # ON: 요청 본문 5 MiB 제한
+    include policies/server/timeouts.conf; # ON: 클라이언트 시간·헤더 제한
+    include policies/server/request-rate.conf; # ON: IP당 요청 빈도 제한
+    include policies/server/connection-limit.conf; # ON: IP당 동시 연결 제한
+    include policies/server/generic-errors.conf; # ON: 오류 본문 가림·프록시 오류 처리
+    include policies/server/symlinks.conf; # ON: Linux 링크 차단 / Windows OS 점검 안내
+    include policies/server/nosniff.conf; # ON: MIME 추측 방지
+    include policies/server/frame-options.conf; # ON: 프레임 삽입 제한
+    include policies/server/referrer-policy.conf; # ON: Referrer 정보 제한
+    include policies/server/csp.conf; # ON: CSP 콘텐츠 출처 제한
+    include policies/server/permissions-policy.conf; # ON: 카메라·마이크·위치 제한
+    include policies/server/hsts.conf; # ON: HTTPS HSTS
+    include policies/server/methods-api.conf; # ON: GET/HEAD/POST/OPTIONS만 허용
+    include policies/server/cors.conf; # ON: 정확한 origin·preflight·CORS 응답
+    include policies/server/private-cache.conf; # ON: API 응답 no-store
+    include policies/server/session-cookies.conf; # ON: 세션 쿠키 Secure/HttpOnly/SameSite
+    include policies/server/proxy-headers.conf; # ON: 전달 헤더 덮어쓰기·고정 Host
+    include policies/server/proxy-timeouts.conf; # ON: 백엔드 연결·응답 시간 제한
+    include policies/server/secret-files.conf; # ON: 숨김·설정·키·백업 파일 차단
+    include policies/server/script-files.conf; # ON: 스크립트·실행 파일 경로 차단
+    include policies/server/uploads.conf; # ON: 업로드 직접 접근 차단
+    include policies/server/management-paths.conf; # ON: Actuator·Swagger·H2 노출 차단
+    include policies/server/sourcemaps.conf; # ON: 소스맵 공개 차단
+    include policies/server/admin-acl.conf; # ON: 관리자/VPN CIDR 접근 제한
+
+    location / { proxy_pass http://forge_spring; }
 }

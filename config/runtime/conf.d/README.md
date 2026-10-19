@@ -1,5 +1,6 @@
-Only files ending in .conf are loaded.
-site.conf.example is ONE COMPLETE frontend/Spring Boot site with its security policies active.
-Edit the deployment values in nginx.conf and site.conf.example, provide real certificates,
-then rename site.conf.example to site.conf. No per-option files need to be selected.
-Install its default listeners once per address/port. See SECURITY-CONFIG.md.
+Only files ending in .conf are loaded here.
+Edit deployment values and provide real certificates, then rename site.conf.example to site.conf.
+Each include in site.conf is an ON/OFF switch: add # to disable, remove # to enable.
+Policies are in conf/policies, outside this directory, and never loaded by a wildcard.
+Frontend/API switches are independent. HTTP-only TLS policy is in nginx.conf.
+Keep shared maps/zones and add_header_inherit merge. See SECURITY-CONFIG.md.

@@ -6,8 +6,8 @@
 
 | 담당 | 항목 | 구현/설정 위치 |
 | --- | --- | --- |
-| NGINX 공통 통합 | HTTP/TLS, 정보/보안 헤더·CSP·Permissions-Policy, CORS map, 요청 제한, 쿠키·프록시·OS 정책 | `conf/nginx.conf` |
-| NGINX 사이트 통합 | 기본 Host/SNI 거부, 프론트/Spring Boot 도메인, HTTPS/HSTS, CORS/preflight, private API no-store, 관리자 CIDR·공용 관리/소스맵 차단 | `conf/conf.d/site.conf.example` → `site.conf` |
+| NGINX 공통 기반 | 로그·MIME·CORS map·제한 zone·헤더 상속·공유 TLS | `conf/nginx.conf`, `conf/policies/http/tls.conf` |
+| NGINX 정책 스위치 | 정보/보안 헤더·CSP·CORS·쿠키·제한·관리 경로 등 목적별 정책 파일, 기본 ON | `conf/conf.d/site.conf.example` → `site.conf`의 개별 include, `conf/policies/` |
 | 프론트 코드 | 안전한 출력/HTML 처리, URL/메시지 검증, 인증정보·계정 전환 상태 처리, CSRF 프로토콜 연동 | [프론트 코드 프롬프트](prompts/FRONTEND-CODE-REVIEW.md) |
 | Spring Boot 코드 | 데이터별 인가, DTO/쿼리/파일/외부 URL 처리, 업무 할당량·일회성 토큰·오류/감사 로직 | [백엔드 코드 프롬프트](prompts/SPRING-BOOT-CODE-REVIEW.md) |
 | Spring/인증 서버 설정 | 인증 필터 체인, 표준 JWT 검증, 세션 TTL/폐기 정책, 비밀번호 해시 정책, Actuator 노출, 운영 에러/프로파일 | 앱 프레임워크/IdP 구성. Java 설정도 포함 |
@@ -36,8 +36,9 @@ NGINX를 반드시 거치는 트래픽 경계를 먼저 확정합니다. 별도 
 
 ## 배포와 판정
 
-옵션별 파일 없이 통합본 두 파일로 제공합니다. 보안 지시문은 모두 활성 상태이며 실제
-domain/origin/쿠키 이름/SSO/관리 경로를 맞추고 사이트 파일 한 개를 활성화합니다.
+정책별 파일과 site.conf의 include 스위치로 제공합니다. 기본값은 모두 ON이며 include 앞에
+#을 붙여 도메인별로 OFF할 수 있습니다. 실제 domain/origin/쿠키 이름/SSO/관리 경로를 맞추고
+사이트 파일 한 개를 활성화합니다. OFF한 통제는 적용 완료로 판정하지 않습니다.
 설치 절차와 헤더 상속 주의사항은 [보안 설정 안내](SECURITY-CONFIG.md)에 있습니다.
 프론트/백엔드 코드 수정, 프레임워크 설정, 운영 설정과 실제 NGINX 활성화 상태를
 각각 기록합니다. 이 분류는 KISA 26개 항목을 계층별 26개씩 나누거나 자동 합격시키는 기준이 아닙니다.

@@ -1,5 +1,7 @@
 # 완료 기준과 실제 검증 상태
 
+정책별 include ON/OFF를 제공하는 r5는 검증 중입니다. 아래는 기존 r4 공개 검증 기록입니다.
+
 2026-10-19 검증 결과: **NGINX 1.30.6 / NginxForge r4 정식 발행 및 Latest 지정 완료**.
 공통 보안 정책을 통합한 nginx.conf와 프론트/Spring Boot용 단일 site.conf.example을
 포함한 실제 배포 압축파일로 검증했습니다. 옵션별 설정 조각과 플랫폼 include 파일은
