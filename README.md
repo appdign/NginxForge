@@ -68,7 +68,8 @@ GitHub Actions를 활성화하면 `main`의 빌드 관련 변경으로 검증 �
 수동 실행은 Actions → **NginxForge gated release**에서 `version`, `channel`, `rebuild`,
 `publish`를 지정합니다. 검증만 필요하면 `publish=false`를 선택합니다.
 이미 발행한 버전은 스케줄에서 건너뛰고, `rebuild=true`이면 재검증만 합니다.
-패치·의존성 변경을 배포할 때 `config/build-config.yml`의 `revision`을 올립니다.
+패치·의존성·배포 설정·포함 문서를 변경해 새 배포를 낼 때
+`config/build-config.yml`의 `revision`을 올립니다.
 
 - [빌드와 검증](docs/BUILD.md)
 - [설치](docs/INSTALL.md)
