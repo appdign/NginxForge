@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tarfile
 import zipfile
-from common import ROOT, SECURITY_DOCS, asset_name, load, packaged_policy_path, sha256, verify_plan, write
+from common import ROOT, SECURITY_DOCS, asset_name, load, packaged_policy_path, render_nginx_config, sha256, verify_plan, write
 
 TARGETS = {'linux-amd64', 'linux-arm64', 'windows-amd64'}
 
@@ -84,10 +84,8 @@ def main():
     (stage / binary_name).chmod(0o755)
     shutil.copytree(str(ROOT / 'config/runtime'), str(stage / 'conf'))
     linux = args.target.startswith('linux-')
-    (stage / 'conf/platform.conf').write_text(
-        '# Linux: native openat/fstatat-based link restriction.\ndisable_symlinks on;\n' if linux else
-        '# Windows: disable_symlinks is unavailable.\n# Require OS ACL and reparse-point review; see SECURITY-CONFIG.md, WEB-12.\n',
-        encoding='utf-8')
+    (stage/'conf/nginx.conf').write_bytes(render_nginx_config(
+        (ROOT/'config/runtime/nginx.conf').read_bytes(), args.target))
     for name in ['logs', 'temp', 'html']:
         (stage / name).mkdir()
         (stage / name / '.keep').touch()

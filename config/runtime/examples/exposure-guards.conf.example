@@ -1,6 +1,0 @@
-# Optional SERVER context. Adapt to actual context paths; protect the direct backend too.
-# Health checks/metrics should use a separate restricted management listener or vhost.
-location ~* ^/(actuator|swagger-resources|v2/api-docs|v3/api-docs|h2-console)(/|$) { return 404; }
-location ~* ^/swagger-ui(\.html|/|$) { return 404; }
-# Review source-map publishing separately. Hiding maps does not fix code vulnerabilities.
-location ~* \.map$ { return 404; }

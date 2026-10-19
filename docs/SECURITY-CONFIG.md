@@ -8,139 +8,99 @@
 이 배포는 KISA 인증 또는 고객사 점검 통과를 의미하지 않습니다. 적용 환경의 실제 설정,
 계정·파일 권한·인증서·업스트림 애플리케이션을 함께 점검해야 합니다.
 
-## 적용 방법
+## 통합 파일 두 개로 적용
 
-새 설치의 `conf/nginx.conf`는 127.0.0.1:8080 확인용이며 인터넷 공개용 HTTPS 설정은
-활성화하지 않습니다. 인증서/개인키/기본 관리자 계정/비밀번호는 배포하지 않습니다.
-기존 설치는 새 파일을 staging에 풀어 비교하고 필요한 옵션만 병합합니다.
+보안 옵션을 파일별로 고르는 구조를 없앴습니다. 옵션별 snippets/examples/platform.conf는
+배포하지 않습니다. 다음 **두 설정 파일** 안에 보안 정책이 실제 지시문으로 모두 들어 있습니다.
 
-1. `conf/examples/00-default-deny.conf.example`을 검토해 `conf/conf.d/00-default-deny.conf`로 복사합니다.
-2. 정적 사이트는 `example.test.static.conf.example`, 애플리케이션 프록시는
-   `app.example.test.proxy.conf.example`을 선택하여 `conf/conf.d/<도메인>.conf`로 복사합니다.
-3. 예시 도메인을 실제 도메인으로 모두 바꾸고 인증서 체인과 개인키를 준비합니다.
-   `ssl_certificate` 경로는 **설정 파일 디렉터리 conf 기준**입니다.
-   예시: `conf/certs/example.test/fullchain.pem`, `conf/certs/example.test/privkey.pem`.
-4. 정적 파일은 prefix 기준 `sites/example.test/public`에 둡니다. 설정·로그·임시 파일·
-   업로드 저장소·개인키를 이 웹 루트 안에 두지 않습니다. 업로드는 애플리케이션이 별도
-   디렉터리에 저장하고 권한·확장자·내용·총 용량을 검증해야 합니다.
-5. 프록시는 고정된 loopback backend `127.0.0.1:9000`을 실제 서비스에 맞게 검토합니다.
-   원격 backend는 TLS와 `proxy_ssl_verify on`, 신뢰 CA 및 hostname 검증을 설정합니다.
-6. 실제 실행 인수와 계정으로 `nginx -p <prefix>/ -c conf/nginx.conf -t`를 통과시킨 뒤
-   재시작/재로드하고 HTTP→HTTPS, 정상/오류 응답, 인증과 업로드를 확인합니다.
+| 파일 | 내용 |
+| --- | --- |
+| `conf/nginx.conf` | 공통 HTTP/TLS, 보안 헤더·CSP, CORS map, 요청 제한, 쿠키, 프록시·OS 정책 |
+| `conf/conf.d/site.conf.example` → `site.conf` | 기본 Host/SNI 거부, 프론트와 Spring Boot 도메인, HTTPS 이동/HSTS, CORS 응답/preflight, private API no-store, 관리자 CIDR와 노출 경로 차단 |
 
-예시 도메인 파일은 `.example`로 끝나 자동 로드되지 않습니다. 검토 후 `.conf`로
-명시적으로 활성화합니다. 기본 deny 가상 호스트는 한 번만 설치합니다. IPv6가 필요한 환경은
-`[::]:80`, `[::]:443 ssl` 바인딩과 방화벽/deny 정책을 동일하게 추가·검증해야 합니다.
+`mime.types`는 표준 MIME 데이터이며 `html/__nginxforge_error.html`은 공통 오류 본문입니다.
+이 리소스들은 패키지에 포함됩니다. 옵션 조각을 조립하거나 보안 include 주석을 하나씩 해제하지 않습니다.
+인증서가 없는 새 설치도 실행할 수 있도록 **전체 사이트 한 파일**만 `.example` 상태로 제공하고,
+첫 시작은 기존과 같이 `127.0.0.1:8080`입니다. 사이트를 활성화하면 모든 사이트 보안 정책이 함께 적용됩니다.
 
-## 포함된 통제와 조정이 필요한 값
+### 실제 환경에 맞춰 바꿀 값
 
-- `http-policy.conf`: Server/X-Powered-By 등 제거, 디렉터리 목록/SSI 끄기,
-  5 MiB 요청 본문 제한, 헤더/본문/응답 타임아웃과 연결 수·요청 빈도 정책.
-- `server-guards.conf`: 숨김·설정·키·백업 파일 및 CGI/스크립트 확장자 차단,
-  직접 업로드 경로 차단, 내부 공통 오류 페이지. 파일 제거·실행 권한 통제도 별도로 필요합니다.
-- 정적 도메인은 GET/HEAD만, 프록시 예시는 GET/HEAD/POST/OPTIONS만 허용합니다.
-  PUT/PATCH/DELETE가 필요한 API는 필요한 경로에 한해 검토 후 허용합니다.
-- `tls.conf`: TLS 1.2/1.3, TLS 1.2 AEAD cipher, 세션 티켓 비활성화.
-  운영 인증서 신뢰·SAN·만료·갱신과 원격 backend TLS는 운영자가 검증해야 합니다.
-- HTTPS 도메인 예시의 HSTS는 1년이며 `includeSubDomains`/`preload`를 강제하지 않습니다.
-  유효한 HTTPS를 계속 유지할 도메인에만 활성화합니다.
-- 보안 응답 헤더는 `always`로 오류 응답에도 적용합니다. 자식 location에서 `add_header`를
-  쓰면 상위 헤더가 상속되지 않을 수 있으므로 `response-headers.conf`를 같은 level에 다시 포함합니다.
-  `more_set_headers`/`more_clear_headers`도 자식에 새로 정의하면 상위 모듈 설정의 상속을
-  검토해야 합니다. `server_tokens off`만으로 Server 헤더가 완전히 제거되지는 않습니다.
-- CSP·Permissions-Policy, 정확한 origin CORS, 세션 쿠키 플래그, private API no-store,
-  공용 관리/소스맵 경로 차단은 아래 선택 include 파일로 제공합니다. 앱의 스크립트·SSO·
-  iframe·CSRF 동작을 확인한 후 적용합니다. 모든 쿠키에 일괄 HttpOnly를 적용하지 않습니다.
-- 프록시 예시는 외부의 X-Forwarded-For/Forwarded 값을 신뢰하지 않고 덮어씁니다.
-  실제 로드밸런서 뒤에서는 정확한 trusted CIDR만 real-IP 설정에 등록합니다.
-- 프록시의 오류 가림은 앱/API 오류 스키마에 영향을 줄 수 있습니다. 기존 상태 코드와 인증
-  헤더를 유지할지 검토합니다. 애플리케이션이 200 응답 본문에 내보낸 비밀까지 제거하지는 않습니다.
-- 다운로드 **전송 속도**인 `limit_rate`를 다운로드 **파일 크기/총량 제한**으로 간주하지 않습니다.
-  파일 크기·일일 총량·권한·동시성은 앱/저장소 정책으로 확인합니다.
-- 기본 gzip은 비활성화입니다. 비밀이 포함되지 않는 공개 정적 리소스에 한해 성능 정책에 맞게
-  재활성화할 수 있습니다. rate/connection 제한은 실제 트래픽과 NAT 사용자 수에 맞게 조정합니다.
+파일의 `DEPLOYMENT VALUE(S)` 주석은 운영 값의 위치를 표시합니다. 보안 정책을 꺼 두는 주석이 아닙니다.
 
-## NGINX로 모으는 선택 정책
+- 프론트 `example.test`, API `app.example.test`를 실제 도메인으로 바꿉니다.
+  샘플은 두 도메인을 한 `site.conf`에 함께 정의합니다. 동일 도메인의 `/api/` 구조라면
+  기존 경로 라우팅에 맞게 server/location 구성을 맞추고 회귀 확인합니다.
+- 인증서/개인키 경로는 **conf 디렉터리 기준**입니다.
+  예: `conf/certs/example.test/fullchain.pem`, `conf/certs/example.test/privkey.pem`.
+- 프론트 root는 prefix 기준 `sites/example.test/public`, Spring Boot backend는
+  `127.0.0.1:9000`입니다. 실제 경로와 로컬 포트로 바꿉니다.
+- CORS 허용 origin은 `nginx.conf`의 **한 map 목록**에서 scheme/host/port를 정확히 바꿉니다.
+  샘플의 프론트/API/portal origin 중 실제 사용하지 않는 주소는 지웁니다. wildcard는 없습니다.
+- CSP는 실제 API origin 및 JS/CSS/이미지/SSO 출처를 필요한 지시문에만 반영합니다.
+  기본값은 self와 명시한 API의 connect-src만 허용합니다. nonce/hash가 필요한 렌더링은
+  앱/빌드와 연동하고 고정 nonce를 사용하지 않습니다.
+- 관리자/VPN CIDR은 `site.conf`의 allow 목록에 넣습니다. 기본은 loopback만 허용하며
+  `/admin`과 `/api/admin` 경로를 함께 제한합니다. 실제 관리자 URL도 확인합니다.
+- 세션 쿠키 이름 JSESSIONID/SESSION과 SameSite=lax를 실제 인증/SSO에 맞춥니다.
+  cross-site 쿠키가 필요한 경우 None+Secure와 앱 CSRF 정책을 함께 검토합니다.
+- API 기본 허용 메소드는 GET/HEAD/POST/OPTIONS입니다. 실제 REST API에 PUT/PATCH/DELETE가
+  필요하면 CORS map, Allow-Methods와 API 메소드 조건을 함께 맞춥니다.
+- 요청 본문 5 MiB, IP당 10r/s·burst 20, 연결 20, 각 timeout은 실제 업무 트래픽에 맞춥니다.
 
-다음 파일은 **server 블록이 아닌 include 조각**입니다. `conf/conf.d/`에 직접 복사하지 않습니다.
-실제 도메인 샘플의 HTTPS `server`에 있는 주석 include를 검토 후 활성화합니다.
-애플리케이션 코드 점검에서 이 HTTP 설정을 중복 작업으로 요구하지 않습니다.
+### 활성화와 기존 서버 반영
 
-| include 파일 (`conf/examples/` 아래) | 적용 문맥 | 담당 정책 |
-| --- | --- | --- |
-| `browser-headers.conf.example` | HTTPS server | self-only 출발 CSP, 카메라/마이크/위치 기능 제한 |
-| `api-cors-http.conf.example` | http, 한 번 | 정확한 허용 origin과 preflight 메소드 map |
-| `api-cors-server.conf.example` | API 전용 HTTPS server | 허용 출처 CORS 응답, preflight, 미허용 origin/메소드 차단 |
-| `api-private-server.conf.example` | private API HTTPS server | JSESSIONID/SESSION 플래그와 Cache-Control: no-store |
-| `exposure-guards.conf.example` | server | 기본 Actuator/Swagger/H2 및 .map 공개 경로 차단 |
+1. 서버 OS에 맞는 릴리즈 패키지의 `nginx.conf`를 사용합니다. Linux는 AMD64/ARM64 모두
+   같은 통합 설정이며 링크 제한이 inline입니다. Windows 파일에는 지원하지 않는 링크 지시문이 없습니다.
+2. 위 운영 값과 인증서·정적 파일·backend를 준비합니다. 설정·키·업로드 저장소를 웹 루트와 분리합니다.
+3. `conf/conf.d/site.conf.example`을 **한 번만** `site.conf`로 이름을 바꿉니다.
+   실제 인증서·개인키·기본 계정·비밀번호는 배포하지 않습니다.
+4. 기존 서버의 사용자 정의 라우팅·계정·실행 인수는 보존하여 통합본에 대조합니다.
+   예전 snippets/include나 같은 listen/server_name/default_server를 중복으로 남기지 않습니다.
+5. 기존 서비스와 같은 prefix/계정으로 `nginx -p <prefix>/ -c conf/nginx.conf -t`를 통과시킨 후
+   해당 서비스의 reload 절차로 적용하고 로그인·업무 API·파일 전송을 확인합니다.
 
-프록시 샘플에서 선택 파일을 함께 활성화하는 위치는 다음과 같습니다. 기존의
-`response-headers.conf`와 HSTS도 **같은 server level**에 둡니다.
+통합본은 `add_header_inherit merge`를 사용하므로 **NGINX 1.29.3 이상**이 필요합니다.
+NginxForge r2/r3의 NGINX 1.30.6에서도 사용할 수 있습니다. 이번 변경 때문에 본체 교체가
+필수인 것은 아닙니다. 기존 설정·인증서·서비스를 자동으로 변경하거나 운영 서버에 접속하지 않습니다.
+IPv6가 필요하면 도메인/default listener와 방화벽·deny 정책에 같은 범위로 추가합니다.
 
-```nginx
-# nginx.conf의 http 안: CORS를 선택할 때 한 번 활성화
-include examples/api-cors-http.conf.example;
+## 이미 반영된 정책과 담당 범위
 
-# 실제 API 도메인의 HTTPS server 안: 필요한 정책만 선택
-include examples/browser-headers.conf.example;
-include examples/api-cors-server.conf.example;
-include examples/api-private-server.conf.example;
-include examples/exposure-guards.conf.example;
-```
+- 정보 헤더 제거, 목록/SSI/gzip 비활성화, 본문·시간·빈도·연결 제한과 TLS 1.2/1.3 정책은 공통 설정입니다.
+- 보안 헤더·CSP·Permissions-Policy는 공통으로 발행합니다. domain의 HSTS/CORS/no-store와
+  함께 상속되도록 merge하며 upstream의 상충 헤더를 제거합니다. 같은 이름을 사용자 location에서
+  다시 add_header로 넣으면 merge로 중복될 수 있으므로 값의 소유자를 한 곳에 둡니다.
+- HSTS는 HTTPS 도메인에 1년이며 includeSubDomains/preload는 강제하지 않습니다.
+  카메라·마이크·위치는 기본적으로 제한되므로 필요한 업무 기능은 허용 출처를 조정합니다.
+- API는 정확한 허용 origin에만 credentialed CORS를 발행하고 알 수 없는 nonempty Origin은
+  403으로 차단합니다. Origin 없는 native 요청에는 CORS 권한을 주지 않습니다.
+  preflight는 고정 허용 메소드/헤더 목록으로 204를 내며 임의 요청 헤더를 반사하지 않습니다.
+  CORS는 로그인·인가·CSRF 검증을 대체하지 않습니다. Spring의 중복 CORS 설정도 대조합니다.
+- private API는 성공/오류 응답에 no-store를 적용합니다. 공개 프론트 정적 파일의 캐시와는
+  분리합니다. 앱 메모리·service worker가 직접 저장한 데이터를 삭제하는 기능은 아닙니다.
+- 지정 세션 쿠키에만 Secure/HttpOnly/SameSite를 적용합니다. JS가 읽는 XSRF-TOKEN은
+  HttpOnly로 바꾸지 않습니다. 쿠키 발급·세션 만료·폐기·JWT 검증은 앱/IdP 책임입니다.
+- 숨김·설정·키·백업·스크립트·업로드 직접 경로, 기본 Actuator/Swagger/H2 및 소스맵 요청은
+  도메인 설정에서 차단합니다. 사용자 정의 관리 경로와 backend 직접/관리 포트의 접근은 별도로 확인합니다.
+- 전달 헤더를 외부 입력 그대로 신뢰하지 않고 덮어씁니다. 신뢰 LB 뒤에서는 정확한 CIDR만
+  real-IP 설정에 등록합니다. 원격 backend가 필요하면 TLS·CA·hostname 검증을 별도로 설정합니다.
+  하위 location에 proxy_set_header를 추가하면 상위 전달 헤더가 상속되지 않을 수 있으므로
+  기존의 전체 전달 헤더 정책을 유지하고 spoofing 검사를 다시 수행합니다.
+- 오류 정보 가림은 API 오류 스키마에 영향을 줄 수 있습니다. 앱의 200 응답이나 로그에 이미
+  섞인 비밀정보를 안전하게 제거하지 않습니다. download limit_rate는 속도이며 파일 크기/총량 제한이 아닙니다.
 
-- CORS map 두 목록의 `https://portal.example.test`, `https://app.example.test`를 실제
-  **scheme/host/port**로 모두 바꿉니다. API 자신의 origin도 필요한 경우 등록합니다.
-  wildcard나 요청 Origin의 무조건 반사는 사용하지 않습니다. 정책이 다른 가상 호스트에는
-  map 변수 이름과 값을 분리해야 합니다. 허용 메소드도 실제 API와 함께 조정합니다.
-- credentialed CORS 응답은 허용 origin에만 보내며 upstream CORS 헤더를 제거하여
-  중복/상충 응답을 방지합니다. 허용 origin이 없는 일반 native 요청은 CORS 권한을 받지
-  않습니다. 알 수 없는 nonempty Origin은 403입니다. 신뢰 SSO form POST 등은 별도 검토합니다.
-- preflight는 backend 인증 없이 204로 처리합니다. 허용 요청 헤더는 고정 목록이고
-  임의 `Access-Control-Request-Headers`를 반사하지 않습니다. 추가 헤더는 목록에 명시합니다.
-  preflight 응답 성공은 실제 endpoint 존재·로그인·데이터 접근 허용을 뜻하지 않습니다.
-  CORS는 브라우저 정책이며 앱 인증·인가·CSRF 검증을 대체하지 않습니다. Spring의 기존
-  CORS 필터가 요청을 먼저 거부하는 경우에도 중복 정책을 운영 설정에서 조정해야 합니다.
-- CSP의 self-only 출발값은 외부 JS/CSS/이미지/프레임 및 다른 origin API 호출을 막을 수
-  있습니다. 실제 출처를 필요한 지시문에 제한적으로 추가하고 SSO form-action도 확인합니다.
-  처음에는 헤더 이름을 `Content-Security-Policy-Report-Only`로 바꿔 확인할 수 있으나,
-  이 상태는 **차단 적용 완료가 아닙니다**. JS로 생성한 meta만으로 동일한 기능을 주장하지 않습니다.
-- NGINX가 해당 정책의 발행 주체가 될 때만 backend CSP/Permissions-Policy를 숨깁니다.
-  더 강한 기존 정책을 버리지 않도록 대조합니다. nonce/hash가 필요한 앱은 빌드/SSR의
-  연동 코드가 필요할 수 있으며 고정 nonce는 사용하지 않습니다.
-- private API 정책은 기존 upstream Cache-Control/Expires를 제거하고 성공/오류 모두
-  no-store를 적용합니다. 공개 정적 파일 사이트 전체에 적용하지 않습니다. 앱의 메모리 상태나
-  service worker가 직접 저장한 데이터를 삭제하는 기능은 아닙니다.
-- 쿠키 플래그는 지정한 세션 쿠키 두 이름만 처리합니다. JS가 읽는 XSRF-TOKEN에는
-  HttpOnly를 붙이지 않습니다. 실제 이름을 맞추고, cross-site 로그인/API가 필요하면
-  SameSite=None+Secure 및 앱 CSRF 정책을 함께 검토합니다. 발급·만료·폐기는 앱/IdP 책임입니다.
-- 관리 경로 차단은 샘플의 기본 URL 기준입니다. context-path/관리 base path 변경과 별도
-  관리 포트·IPv6·backend 직접 접근은 별도로 막습니다. 외부 health/metrics가 필요하면
-  전용 제한 listener/vhost를 사용합니다. 소스맵 차단은 소스의 취약점이나 비밀값을 제거하지 않습니다.
+실행 검사는 **배포된 두 파일을 그대로** 사용합니다. 조각을 추가하거나 정책 주석을 해제하지 않고,
+테스트용 포트·backend·CIDR 및 인증서 fixture만 대입하여 전체 설정을 검증합니다.
+고객사 브라우저·SSO 호환성이나 별도 애플리케이션 코드까지 점검 완료한 의미는 아닙니다.
 
-선택 파일 안에는 location별 add_header를 추가하지 않습니다. 사용자가 자식 location에
-새 add_header를 넣으면 상위 헤더가 사라질 수 있으므로 선택한 **전체 헤더 정책**을
-같은 level에 다시 포함하고 정상·오류·preflight 응답을 검사해야 합니다.
-
-실행 검사는 패키지에서 꺼낸 선택 파일을 실제로 활성화하여 헤더 중복 제거, 허용/거부 CORS,
-preflight 고정 헤더, 세션/CSRF 쿠키 구분, no-store, 관리/소스맵 경로 차단을 확인합니다.
-이는 실제 프런트 앱의 브라우저 동작이나 고객사 SSO 호환성을 대신 검증한 결과는 아닙니다.
-
-## 애플리케이션에는 코드 작업만 남기기
-
-[보안 담당 범위](SECURITY-OWNERSHIP.md)와 다음 프롬프트를 사용합니다.
-
-- [프론트엔드 코드 전용 점검·수정](prompts/FRONTEND-CODE-REVIEW.md)
-- [Spring Boot 코드 전용 점검·수정](prompts/SPRING-BOOT-CODE-REVIEW.md)
-
-세 문서는 소스 저장소와 세 플랫폼 패키지 모두에 포함됩니다. 세션 TTL·표준 JWT 검증·
-PasswordEncoder·Actuator 노출·프로파일처럼 프레임워크 설정으로 해결되는 항목은
-별도 설정 표로 분리합니다. 이를 NGINX 옵션이라고 부르지 않습니다. OS 계정/ACL,
-비밀값 주입·패치·인증서 관리도 운영 담당으로 남깁니다. 객체별 인가·XSS 안전 출력·
-파일 내용/경로 검증·업무 할당량·일회성 토큰 소비·민감 데이터 응답/로그 처리는 코드 작업입니다.
+[보안 담당 범위](SECURITY-OWNERSHIP.md), [프론트 코드 전용 프롬프트](prompts/FRONTEND-CODE-REVIEW.md),
+[Spring Boot 코드 전용 프롬프트](prompts/SPRING-BOOT-CODE-REVIEW.md)를 함께 제공합니다.
+세션 TTL·표준 JWT·PasswordEncoder·Actuator 노출·OS ACL 등 설정 항목은 코드 점검에서 분리하고,
+객체별 인가·XSS 출력·파일 내용/경로·업무 할당량·일회성 토큰 소비 등 실제 코드 작업만 남깁니다.
 
 ## 운영체제별 권한과 링크
 
-Linux 패키지는 `conf/platform.conf`에 `disable_symlinks on;`을 넣습니다. 링크를 사용하는
+Linux 패키지는 `conf/nginx.conf` 안에 `disable_symlinks on;`을 직접 넣습니다. 링크를 사용하는
 기존 배포 구조는 영향을 검토하세요. 운영 전용 비특권 계정을 사용하고 실제 서비스가 필요로 하는
 최소 권한만 부여합니다. 예시 정책은 개인키/비밀번호 파일 600, 로그 파일 640, 로그 디렉터리
 750입니다. master/worker의 읽기·쓰기 요구사항을 확인하여 소유자와 그룹을 정합니다.

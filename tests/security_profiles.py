@@ -18,9 +18,9 @@ COMMON_CHECKS = ['profile:' + name for name in [
     'static-https', 'security-headers', 'directory-listing', 'hidden-files',
     'backup-config-files', 'traversal', 'script-mapping', 'methods', 'request-size',
     'proxy-fixed-destination', 'forwarded-headers', 'upstream-errors', 'uploads-denied',
-    'optional-cookie-flags', 'admin-acl', 'tls12', 'tls13', 'rate-limit',
+    'session-cookie-flags', 'admin-acl', 'tls12', 'tls13', 'rate-limit',
     'browser-policy', 'cors-preflight', 'cors-rejection', 'cors-no-origin',
-    'api-no-store', 'management-denial', 'sourcemap-denial', 'cookie-scope']]
+    'api-no-store', 'management-denial', 'sourcemap-denial', 'cookie-scope', 'integrated-layout']]
 
 def platform_checks(target):
     return ['profile:linux-symlink-denial'] if target.startswith('linux-') else ['profile:windows-link-review-documented']
@@ -57,6 +57,13 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
     check(mapping['control_count']==26 and not mapping['certification_claim'], 'KISA matrix must disclose scope')
     check(len(mapping['controls'])==26, 'Incomplete KISA applicability matrix')
     done('profile:package-integrity')
+    config_files={p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf').rglob('*') if p.is_file()}
+    check(config_files=={'nginx.conf','mime.types','conf.d/site.conf.example','conf.d/README.md'},
+          'Integrated configuration must not contain per-option fragments: '+repr(config_files))
+    site_template=(runtime/'conf/conf.d/site.conf.example').read_text(encoding='utf-8')
+    check('include ' not in '\n'.join(line for line in site_template.splitlines() if not line.lstrip().startswith('#')),
+          'Domain configuration still requires option includes')
+    done('profile:integrated-layout')
     def port():
         with socket.socket() as sock:
             sock.bind(('127.0.0.1',0))
@@ -85,21 +92,12 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             (site/'linked.txt').symlink_to(base/'outside-secret.txt')
         config = (base/'conf/nginx.conf').read_text(encoding='utf-8')
         config='daemon off;\nmaster_process off;\n'+config.replace('127.0.0.1:8080','127.0.0.1:'+str(preview_port))
-        config=config.replace('# include examples/api-cors-http.conf.example;',
-                              'include examples/api-cors-http.conf.example;')
         (base/'conf/nginx.conf').write_text(config,encoding='utf-8')
-        for template in ['00-default-deny.conf.example','example.test.static.conf.example','app.example.test.proxy.conf.example']:
-            text=(base/'conf/examples'/template).read_text(encoding='utf-8')
-            text=text.replace('listen 80','listen 127.0.0.1:'+str(http_port)).replace('listen 443','listen 127.0.0.1:'+str(https_port))
-            text=text.replace('127.0.0.1:9000','127.0.0.1:'+str(backend.server_port))
-            for policy in ['browser-headers','api-cors-server','api-private-server','exposure-guards']:
-                text=text.replace('# include examples/'+policy+'.conf.example;',
-                                  'include examples/'+policy+'.conf.example;')
-            if template.startswith('app.'):
-                admin=(base/'conf/examples/admin-location.conf.example').read_text().replace(
-                    'allow 127.0.0.1;','allow 192.0.2.123;').replace('127.0.0.1:9000','127.0.0.1:'+str(backend.server_port))
-                text=text.replace('    location / {',admin+'\n    location / {')
-            (base/'conf/conf.d'/template[:-8]).write_text(text,encoding='utf-8')
+        # Activate the SINGLE shipped site as-is. Only bind ports/backend/test CIDR differ.
+        text=site_template.replace('listen 80','listen 127.0.0.1:'+str(http_port)).replace('listen 443','listen 127.0.0.1:'+str(https_port))
+        text=text.replace('127.0.0.1:9000','127.0.0.1:'+str(backend.server_port))
+        text=text.replace('allow 127.0.0.1;','allow 192.0.2.123;')
+        (base/'conf/conf.d/site.conf').write_text(text,encoding='utf-8')
         for domain in ['example.test','app.example.test']:
             dest=base/'conf/certs'/domain; dest.mkdir(parents=True)
             shutil.copy2(str(root/'tests/fixtures/cert.pem'),str(dest/'fullchain.pem'))
@@ -193,7 +191,7 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             done('profile:forwarded-headers')
             cookie=headers.get('Set-Cookie','').lower()
             check(all(flag in cookie for flag in ['secure','httponly','samesite=lax']),'Selected session-cookie flags failed')
-            done('profile:optional-cookie-flags')
+            done('profile:session-cookie-flags')
             cookies=headers.get_all('Set-Cookie') or []
             session=next((item.lower() for item in cookies if item.startswith('SESSION=')), '')
             csrf=next((item.lower() for item in cookies if item.startswith('XSRF-TOKEN=')), '')
@@ -211,10 +209,11 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             check(status==500 and b'database password' not in data and b'could not be completed' in data,'Upstream error leaked or status changed')
             done('profile:upstream-errors')
             blocked('/uploads/leak.txt'); done('profile:uploads-denied')
-            status,headers,data=request('app.example.test','/admin/')
-            check(status==403,'Management CIDR restriction failed')
+            for path in ['/admin/','/api/admin/']:
+                status,headers,data=request('app.example.test',path)
+                check(status==403,'Management CIDR restriction failed: '+path)
             done('profile:admin-acl')
-            csp="default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'"
+            csp="default-src 'self'; connect-src 'self' https://app.example.test; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'"
             for host,path,expected in [('example.test','/index.html',200),('example.test','/missing',404),
                                        ('app.example.test','/echo',200),('app.example.test','/upstream-error',500)]:
                 status,headers,data=request(host,path,headers={'Origin':'https://portal.example.test'})
@@ -270,7 +269,7 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             if target.startswith('linux-'):
                 blocked('/linked.txt'); done('profile:linux-symlink-denial')
             else:
-                policy=(runtime/'conf/platform.conf').read_text()
+                policy=(runtime/'conf/nginx.conf').read_text()
                 check('requires_windows_os_acl_review'==metadata['security_capabilities']['symlink_enforcement']
                       and not any(line.strip().startswith('disable_symlinks ') for line in policy.splitlines()),
                       'Windows must not claim native link restriction')

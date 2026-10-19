@@ -24,7 +24,8 @@ sudo /opt/nginxforge/sbin/nginx
 기본 prefix는 `/opt/nginxforge`, 설정은 `conf/nginx.conf`입니다. `-p`와 `-c`로
 고정 경로를 명시할 수 있습니다. 새 설치의 8080 포트는 127.0.0.1에서만 수신합니다.
 운영 HTTPS는 [보안 설정 문서](SECURITY-CONFIG.md)를 따라 실제 도메인·인증서를 넣어
-conf/examples의 샘플을 conf/conf.d/*.conf로 활성화합니다. 샘플 포함만으로 보안 점검이
+통합 사이트 conf/conf.d/site.conf.example 하나를 site.conf로 활성화합니다. 옵션별 파일을
+선택하거나 보안 include 주석을 해제할 필요가 없습니다. 샘플 포함만으로 보안 점검이
 완료되는 것은 아닙니다. 기존 nginx.conf는 자동 변경하지 않습니다.
 프로세스 사용자에게 로그·temp 디렉터리 권한을 부여하고,
 운영에서는 전용 비특권 사용자와 조직의 systemd/SELinux 정책을 적용하세요.

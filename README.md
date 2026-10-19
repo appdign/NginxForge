@@ -26,7 +26,7 @@ ARM64를 후속 과제로 미루거나 실패를 무시하지 않습니다. Linu
 - OpenSSL, PCRE2 JIT, zlib, HTTP/2, 리버스 프록시, gzip, rewrite
 - 동일한 NGINX 태그/커밋, 보안 패치와 의존성 잠금을 세 바이너리에 적용
 - KISA 2026 웹 서비스 26개 항목 대응표와 공통 보안 설정·도메인별 HTTPS/프록시 예시 배포
-- NGINX 선택 정책: 정확한 origin CORS, CSP, 세션 쿠키 플래그, private API no-store, 공용 관리 경로 차단
+- 보안 통합 nginx.conf + 단일 site.conf: CORS/CSP, 쿠키, private API no-store, 관리자/공용 관리 경로 차단
 - 프론트/Spring Boot 코드 점검 프롬프트와 NGINX·프레임워크·운영 설정 담당 범위 제공
 - Linux ELF 인터프리터·동적 섹션 차단, Windows AMD64 PE와 시스템 DLL 의존성 검사
 - 매일 09:00 KST경 공식 Stable 확인, 수동 Mainline/특정 버전/재빌드 지원
@@ -92,7 +92,10 @@ python -m unittest discover -s tests -p "test_*.py" -v
 바이너리 빌드는 GitHub Actions에서 수행합니다. 정식 릴리즈가 실제로 발행되고
 모든 필수 플랫폼 증거가 확인되기 전에는 프로젝트를 완료로 간주하지 않습니다.
 
-보안 샘플은 `conf/examples/*.example`로 비활성 상태로 포함됩니다. 실제 도메인·인증서·
-운영 정책을 검토하여 `conf/conf.d/*.conf`로 활성화합니다. 새 설치 기본 설정은 localhost만
-수신합니다. 기존 설정을 자동 덮어쓰지 않습니다. 보안 기능·샘플 포함은 KISA 점검 통과나
+보안 설정은 릴리즈의 `conf/nginx.conf`와 `conf/conf.d/site.conf.example` 두 파일로 통합됩니다.
+옵션별 include나 주석 해제가 필요하지 않으며 모든 보안 정책이 작성된 상태입니다.
+실제 도메인·인증서·origin·backend·관리자 CIDR을 맞추고 사이트 파일 하나를 `site.conf`로
+활성화합니다. MIME 데이터/오류 HTML은 함께 제공됩니다. OS 링크 정책도 nginx.conf 안에
+직접 반영됩니다. 통합본은 NGINX 1.29.3+이며 기존 NginxForge 1.30.6에서도 사용할 수 있습니다.
+새 설치 기본 설정은 localhost만 수신합니다. 기존 설정을 자동 덮어쓰지 않습니다. 보안 기능·샘플 포함은 KISA 점검 통과나
 인증을 뜻하지 않으며 Windows NTFS 링크/ACL, 앱 관리자 인증·업로드·다운로드 정책은 별도 조치가 필요합니다.
