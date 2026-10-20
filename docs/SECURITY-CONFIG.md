@@ -108,7 +108,8 @@ CSS style 속성/태그/동적 스타일을 허용하고 동일 사이트 js/mjs
 
 운영 conf에는 nginx.conf·mime.types·site.conf와 기존 38개 분할 정책만 제공합니다.
 샘플·이전 구성·backend YAML·코드 프롬프트는 저장소/별도 참고 묶음에 두며 conf에 섞지 않습니다.
-공개 패키지의 초기 site.conf는 실제 도메인/인증서를 포함하지 않고 요청을 거부합니다.
+공개 패키지의 초기 site.conf는 127.0.0.1:8080에서 요청을 거부하며 공개 포트를 열지 않습니다.
+Windows의 예약된 80포트도 초기 문법 검사에 사용하지 않습니다.
 실제 값으로 치환한 site.conf를 설치해야 서비스합니다. 생성용 원본은
 [site-template.conf](https://github.com/appdign/NginxForge/blob/main/config/site-template.conf)입니다.
 @@...@@ 토큰을 그대로 운영에 설치하지 않습니다.

@@ -22,7 +22,7 @@ sudo /opt/nginxforge/sbin/nginx
 ```
 
 기본 prefix는 `/opt/nginxforge`, 설정은 `conf/nginx.conf`입니다. `-p`와 `-c`로
-고정 경로를 명시할 수 있습니다. 공개 초기 site.conf는 HTTP 요청/알 수 없는 TLS SNI를
+고정 경로를 명시할 수 있습니다. 공개 초기 site.conf는 127.0.0.1:8080에서 요청을
 거부합니다. [보안 설정 문서](SECURITY-CONFIG.md)에 따라 실제 site.conf를 준비합니다.
 도메인은 맨 위 server_name 한 줄, 인증서/root·API·WS/backend·외부 허용 목록도 같은 파일에서
 설정합니다. 기존 38개 분할 정책의 include 줄 앞에 #을 붙여 해당 사이트에서 OFF합니다.

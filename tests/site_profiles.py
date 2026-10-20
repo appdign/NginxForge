@@ -152,9 +152,10 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                 site_id='site_'+str([spec['host'] for spec in specs].index(host)+1)
                 marker='# BEGIN SITE: '+site_id+'\n';before,part=text.split(marker,1);block,after=part.split('# END SITE: '+site_id,1)
                 return before+marker+change(block)+'# END SITE: '+site_id+after
-            def denied(path):
+            def denied(path,allow_spa=False):
                 status,headers,data=request('alpha.test',path)
-                check(status in (400,403,404) and b'PRIVATE FIXTURE' not in data and b'OUTSIDE SECRET' not in data,'Forbidden file served: '+path)
+                safe_status=status in (400,403,404) or (allow_spa and status==200 and data==b'SPA alpha.test\n')
+                check(safe_status and b'PRIVATE FIXTURE' not in data and b'OUTSIDE SECRET' not in data,'Forbidden file served: '+path)
             try:
                 start(template)
                 status,headers,data=request('alpha.test','/screen?x=1',secure=False)
@@ -250,7 +251,9 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                     else:ctx.options|=ssl.OP_NO_TLSv1|ssl.OP_NO_TLSv1_1|ssl.OP_NO_TLSv1_2
                     check(request('alpha.test','/index.html',tls=ctx)[0]==200,'TLS version failed');done('profile:'+name)
                 if target.startswith('linux-'):
-                    denied('/linked.txt');done('profile:linux-symlink-denial')
+                    # try_files skips a blocked symlink and can serve the public SPA fallback.
+                    # Accept only that exact public body or a denial, never the linked secret.
+                    denied('/linked.txt',allow_spa=True);done('profile:linux-symlink-denial')
                 else:
                     link_policy=policy_bytes['policies/server/symlinks.conf']
                     check(b'Windows' in link_policy and not any(line.strip().startswith(b'disable_symlinks ') for line in link_policy.splitlines()),'Windows claims native link protection');done('profile:windows-link-review-documented')
