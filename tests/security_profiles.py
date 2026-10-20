@@ -63,7 +63,7 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
     config_files={p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf').rglob('*') if p.is_file()}
     policy_files={p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf/policies').rglob('*.conf')}
     source_policies={p.relative_to(root/'config/runtime').as_posix() for p in (root/'config/runtime/policies').rglob('*.conf')}
-    check(policy_files==source_policies and len(policy_files)==37, 'Missing or unexpected policy files')
+    check(policy_files==source_policies and len(policy_files)==38, 'Missing or unexpected policy files')
     check(config_files=={'nginx.conf','mime.types','conf.d/site.conf.example','conf.d/README.md',
                          'examples/spa-api-websocket.conf.example','maps/spa-api-websocket.conf'}|policy_files,
           'Unexpected configuration files: '+repr(config_files))
@@ -71,8 +71,8 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
     main_template=(runtime/'conf/nginx.conf').read_text(encoding='utf-8')
     spa_template=(runtime/'conf/examples/spa-api-websocket.conf.example').read_text(encoding='utf-8')
     base_policies=set(re.findall(r'^\s*include (policies/[^;]+);',main_template+'\n'+site_template,re.M))
-    selected=base_policies|set(re.findall(r'^\s*include (policies/[^;]+);',spa_template,re.M))
-    check(selected==policy_files, 'Policies must have explicit ON switches, without wildcard loading')
+    selected=base_policies|set(re.findall(r'^\s*(?:#\s*)?include (policies/[^;]+);',spa_template,re.M))
+    check(selected==policy_files, 'Policies must have explicit switches, without wildcard loading')
     done('profile:policy-layout')
     def port():
         with socket.socket() as sock:

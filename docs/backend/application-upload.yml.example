@@ -1,0 +1,16 @@
+# Merge these values into the existing upload service configuration.
+# For a Spring MVC/Servlet application with embedded Tomcat; not a WebFlux/Netty policy.
+# Spring DataSize MB/GB and NGINX m/g use binary units here: MiB/GiB.
+# This example is not automatically loaded or applied by NGINX.
+spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      # Whole request, including every file, ordinary fields and multipart overhead.
+      max-request-size: 1GB
+
+server:
+  tomcat:
+    # Aggregate form parameter data parsed by Tomcat, excluding uploaded file parts.
+    # This is not a limit on arbitrary JSON/request bodies or WebSocket messages.
+    max-http-form-post-size: 5MB

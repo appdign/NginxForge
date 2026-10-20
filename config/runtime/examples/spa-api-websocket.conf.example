@@ -29,6 +29,8 @@ server {
     include policies/server/ssi.conf; # ON: SSI OFF
     include policies/server/compression.conf; # ON: 압축 OFF
     include policies/server/body-size.conf; # ON: 요청 본문 5 MiB, 실제 업로드 용량에 맞게 조정
+    # 파일 서버: 위 5 MiB 줄을 주석 처리하고 아래 1 GiB 줄을 활성화합니다. 둘을 동시에 켜지 않습니다.
+    # include policies/server/upload-body-size.conf; # OPTION: 전체 요청 1 GiB, 파일당 50 MiB는 backend 설정
     include policies/server/timeouts.conf; # ON: 클라이언트 시간/헤더 제한
     include policies/server/request-rate.conf; # ON: 요청 빈도 제한
     include policies/server/connection-limit.conf; # ON: 연결 제한, 장기 WebSocket/NAT 사용자 수 고려

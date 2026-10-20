@@ -10,7 +10,7 @@
 | NGINX 정책 스위치 | 정보/보안 헤더·CSP·CORS·쿠키·제한·관리 경로 등 목적별 정책 파일, 기본 ON | `conf/conf.d/site.conf.example` → `site.conf`의 개별 include, `conf/policies/` |
 | 프론트 코드 | 안전한 출력/HTML 처리, URL/메시지 검증, 인증정보·계정 전환 상태 처리, CSRF 프로토콜 연동 | [프론트 코드 프롬프트](prompts/FRONTEND-CODE-REVIEW.md) |
 | Spring Boot 코드 | 데이터별 인가, DTO/쿼리/파일/외부 URL 처리, 업무 할당량·일회성 토큰·오류/감사 로직 | [백엔드 코드 프롬프트](prompts/SPRING-BOOT-CODE-REVIEW.md) |
-| Spring/인증 서버 설정 | 인증 필터 체인, 표준 JWT 검증, 세션 TTL/폐기 정책, 비밀번호 해시 정책, Actuator 노출, 운영 에러/프로파일 | 앱 프레임워크/IdP 구성. Java 설정도 포함 |
+| Spring/인증 서버 설정 | 인증 필터 체인, 표준 JWT 검증, 세션 TTL/폐기 정책, 비밀번호 해시 정책, Actuator 노출, multipart 파일 50 MiB/요청 1 GiB·Tomcat 폼 5 MiB | 앱 프레임워크/IdP 구성. [업로드 설정 예시](backend/application-upload.yml.example). Java 설정도 포함 |
 | 운영 설정 | OS/DB 계정·ACL, Windows 링크, 방화벽·backend 직접 접근, 비밀값 주입·인증서·로그 회전·패치 | 배포/운영 담당 |
 
 코드와 설정은 파일 확장자로 구분하지 않습니다. 예를 들어 `SecurityFilterChain`을

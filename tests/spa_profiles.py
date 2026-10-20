@@ -19,7 +19,8 @@ import time
 SPA_CHECKS = ['spa:'+name for name in [
     'configuration','canonical-http','static-fallback','rest-routing','storage-routing',
     'forwarded-headers','cache-isolation','guard-precedence','websocket-tunnel',
-    'websocket-origin','policy-toggles','missing-index']]
+    'websocket-origin','policy-toggles','missing-index',
+    'upload-large-body','upload-total-limit','upload-default-limit']]
 
 def receive(stream, count):
     data=b''
@@ -146,7 +147,7 @@ def run_spa_profiles(binary,runtime,target,root,check,done):
                         with socket.create_connection(('127.0.0.1',http_port),timeout=.2): return
                     except OSError: time.sleep(.1)
                 raise AssertionError('SPA server did not start')
-            def request(path,method='GET',headers=None,secure=True):
+            def request(path,method='GET',headers=None,secure=True,body=None):
                 time.sleep(.12)
                 connection=http.client.HTTPConnection('127.0.0.1',https_port if secure else http_port,timeout=10)
                 if secure:
@@ -154,7 +155,7 @@ def run_spa_profiles(binary,runtime,target,root,check,done):
                                                         server_hostname='example.test')
                 values={'Host':'example.test','Connection':'close'}
                 values.update(headers or {})
-                connection.request(method,path,headers=values)
+                connection.request(method,path,body=body,headers=values)
                 response=connection.getresponse(); data=response.read(); hdr=response.headers
                 status=response.status; connection.close()
                 return status,hdr,data
@@ -261,6 +262,33 @@ def run_spa_profiles(binary,runtime,target,root,check,done):
                               'SPA cache switch OFF did not restore backend policy')
                         check(headers.get_all('X-Frame-Options')==['SAMEORIGIN'],'Cache toggle removed unrelated policy')
                 done('spa:policy-toggles')
+
+                # Enable the packaged file-server alternative exactly as an operator does.
+                stop()
+                upload_template=template.replace('    include policies/server/body-size.conf;',
+                                                  '    # include policies/server/body-size.conf;')
+                upload_template=upload_template.replace('    # include policies/server/upload-body-size.conf;',
+                                                        '    include policies/server/upload-body-size.conf;')
+                check(upload_template!=template,'Upload option was not selected')
+                site_path.write_text(upload_template,encoding='utf-8'); syntax(); start()
+                # A real multipart request larger than the previous 5 MiB cap reaches the backend.
+                boundary='nginxforge-upload-boundary'
+                payload=(('--'+boundary+'\r\nContent-Disposition: form-data; name="file"; filename="fixture.bin"\r\n'
+                          'Content-Type: application/octet-stream\r\n\r\n').encode()+b'x'*(6*1024*1024)+
+                         ('\r\n--'+boundary+'--\r\n').encode())
+                status,headers,data=request('/api/upload',method='POST',body=payload,
+                    headers={'Content-Type':'multipart/form-data; boundary='+boundary})
+                check(status==200 and json.loads(data.decode()).get('path')=='/api/upload',
+                      'Multipart request above 5 MiB did not reach backend under 1 GiB policy')
+                done('spa:upload-large-body')
+                # Reject an oversized Content-Length before sending or allocating a 1 GiB body.
+                status,headers,data=request('/api/upload',method='POST',headers={'Content-Length':str(1024**3+1)})
+                check(status==413,'1 GiB request ceiling was not enforced')
+                done('spa:upload-total-limit')
+                stop(); site_path.write_text(template,encoding='utf-8'); start()
+                status,headers,data=request('/api/upload',method='POST',headers={'Content-Length':str(len(payload))})
+                check(status==413,'Turning off upload alternative did not restore the default 5 MiB cap')
+                done('spa:upload-default-limit')
                 stop(); site_path.write_text(template,encoding='utf-8')
                 (site/'index.html').unlink(); start()
                 status,headers,data=request('/documents/123')

@@ -49,7 +49,8 @@ include하면 값은 공유되고 적용 여부는 도메인별로 선택합니�
 | `directory-listing.conf` | 디렉터리 목록 비활성화 |
 | `ssi.conf` | SSI 비활성화 |
 | `compression.conf` | 민감 응답의 gzip 압축 비활성화 |
-| `body-size.conf` | 요청 본문 5 MiB 제한 |
+| `body-size.conf` | 일반 요청 본문 5 MiB 제한 |
+| `upload-body-size.conf` | 파일 서버 대안: 전체 요청 1 GiB. body-size와 같은 문맥에서 둘 중 하나만 선택 |
 | `timeouts.conf` | 클라이언트 시간·헤더 제한 |
 | `request-rate.conf` | IP당 10r/s·burst 20, 초과 429 |
 | `connection-limit.conf` | IP당 동시 연결 20, 초과 429 |
@@ -209,6 +210,64 @@ generic-errors는 backend 오류 본문을 HTML로 가릴 수 있으므로 업�
 
 [NGINX WebSocket](https://nginx.org/en/docs/http/websocket.html)과
 [proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)를 참고하세요.
+
+## 파일 서버 용량: 파일 50 MiB / 요청 전체 1 GiB / 일반 폼 5 MiB
+
+NGINX의 client_max_body_size는 파일을 제외하거나 파일별 크기를 구분하지 않습니다.
+파일 서버 사이트에는 아래처럼 **둘 중 하나만** 선택합니다.
+
+```nginx
+# include policies/server/body-size.conf; # 일반 API 대안: 전체 5 MiB
+include policies/server/upload-body-size.conf; # 파일 서버: 전체 1 GiB
+```
+
+업로드 경로가 확정되지 않은 파일 서버는 server 수준에서 1 GiB를 선택합니다.
+이때 그 사이트의 **JSON 등 일반 요청에도 NGINX의 1 GiB 상한**이 적용됩니다.
+일반 API/JSON의 5 MiB 제한을 동시에 유지하려면 나중에 실제 업로드 location에만
+upload-body-size.conf를 넣고 상위 body-size.conf를 유지합니다. Content-Type 헤더만으로
+파일 업로드 여부를 신뢰해 다른 요청을 예외 처리하지 않습니다.
+
+파일별 50 MiB와 일반 폼 필드 5 MiB는 실제 업로드를 처리하는 **Spring MVC/Servlet +
+Tomcat**에서 적용해야 합니다. [backend/application-upload.yml.example](backend/application-upload.yml.example)을
+해당 backend의 기존 application 설정에 병합합니다. NGINX가 이 YAML을 자동 적용하지 않으며
+Jetty/Netty/WebFlux나 다른 제품에 그대로 적용되는 설정은 아닙니다.
+
+```yaml
+spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 1GB
+server:
+  tomcat:
+    max-http-form-post-size: 5MB
+```
+
+| 제한 | 범위 |
+| --- | --- |
+| NGINX 1g | 전체 HTTP 요청 본문 |
+| multipart.max-file-size 50MB | multipart의 파일 하나 |
+| multipart.max-request-size 1GB | 파일·일반 필드·multipart framing을 포함한 요청 전체 |
+| Tomcat max-http-form-post-size 5MB | Tomcat이 파라미터로 파싱하는 일반 폼 데이터 합계. 업로드 파일 제외 |
+
+여기서 50MB/1GB는 Spring DataSize 기준 50 MiB/1 GiB이며 NGINX m/g와 같은 이진 단위입니다.
+1 GiB는 **파일 크기의 합계만이 아니라 폼/전송 형식도 포함**합니다.
+파일 합계만 정확히 1 GiB까지 허용하려면 별도의 합계 검증과 전체 요청 여유분 설계가 필요합니다.
+Tomcat의 폼 제한은 JSON 본문이나 WebSocket 메시지를 제한하지 않으며,
+각 의미 필드/파일 형식·인증·인가·업무 할당량 검증은 애플리케이션 담당입니다.
+기존 계정·포트·DB·인증 설정을 덮어쓰지 말고 실제 업로드 서비스에 위 속성만 병합합니다.
+큰 업로드를 수용할 NGINX/Spring의 임시 저장 공간도 준비합니다.
+
+기본 SPA 샘플은 5 MiB를 유지하고 1 GiB 대안 줄을 주석으로 제공합니다.
+고객사 파일 서버 적용본에서는 5 MiB 줄을 끄고 1 GiB를 켭니다.
+실행 검사는 배포된 옵션을 선택해 5 MiB보다 큰 실제 multipart가 backend에 도달하고,
+1 GiB 초과 Content-Length는 413으로 거부하며, 옵션을 되돌리면 다시 5 MiB가 적용되는지 확인합니다.
+**Spring Boot 실제 앱의 파일당 50 MiB·폼 5 MiB 동작은 이 NGINX 테스트가 검증한 것이 아닙니다.**
+backend 설정 적용/재시작 뒤 실제 앱에서 각각 초과 요청을 거부하는지 확인해야 합니다.
+
+[NGINX 요청 크기](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size),
+[Spring Boot 속성](https://docs.spring.io/spring-boot/appendix/application-properties/index.html),
+[Tomcat maxPostSize](https://tomcat.apache.org/tomcat-10.1-doc/config/http.html#Common_Attributes)를 참고하세요.
 
 ## 운영체제별 권한과 링크
 

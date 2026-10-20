@@ -26,6 +26,7 @@ ARM64를 후속 과제로 미루거나 실패를 무시하지 않습니다. Linu
 - OpenSSL, PCRE2 JIT, zlib, HTTP/2, 리버스 프록시, gzip, rewrite
 - 동일한 NGINX 태그/커밋, 보안 패치와 의존성 잠금을 세 바이너리에 적용
 - KISA 2026 웹 서비스 26개 항목 대응표와 공통 보안 설정·도메인별 HTTPS/프록시 예시 배포
+- 파일 서버 요청 1 GiB 선택 정책과 Spring Boot/Tomcat 파일 50 MiB·폼 5 MiB 설정 예시
 - 단일 도메인 SPA + REST + WebSocket 샘플: 9090/9080 라우팅·Upgrade·실제 프레임 왕복 검사
 - site.conf의 정책별 include ON/OFF: CORS/CSP, 쿠키, private API no-store, 관리자/공용 관리 경로 차단
 - 프론트/Spring Boot 코드 점검 프롬프트와 NGINX·프레임워크·운영 설정 담당 범위 제공
