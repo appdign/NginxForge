@@ -39,7 +39,7 @@ server {
     include policies/server/nosniff.conf; # ON: MIME 추측 방지
     include policies/server/frame-options.conf; # ON: 프레임 제한
     include policies/server/referrer-policy.conf; # ON: Referrer 제한
-    include policies/server/csp-spa.conf; # ON: 동일 origin + WSS CSP, 실제 앱/SSO 출처 확인
+    include policies/server/csp-spa.conf; # ON: 동일 origin + WSS, 인라인 CSS 허용/JS 차단. 실제 앱/SSO 출처 확인
     include policies/server/permissions-policy.conf; # ON: 브라우저 기능 제한
     include policies/server/hsts.conf; # ON: HTTPS HSTS
     include policies/server/session-cookies.conf; # ON: 지정 세션 쿠키 플래그

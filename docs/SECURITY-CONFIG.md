@@ -188,6 +188,15 @@ Windows에서는 D:/... 절대 경로를 사용할 수 있습니다.
   Origin 없는 일반 HTTP는 허용합니다. 이 검사는 로그인·객체별 인가를 대체하지 않습니다.
 - CSP connect-src에는 self와 실제 wss://도메인을 지정합니다. 실제 JS/CSS/이미지·SSO 출처를
   확인하고 필요한 항목만 추가합니다. 같은 origin SPA/API라 NGINX CORS 응답은 추가하지 않습니다.
+- SPA CSP는 `style-src 'self' 'unsafe-inline'`로 style 속성·style 태그·CSS-in-JS의 인라인
+  CSS를 허용합니다. `script-src 'self'`는 같은 origin의 JS 파일만 허용하며 인라인 script,
+  onclick 같은 HTML 이벤트 핸들러와 eval을 허용하지 않습니다. 기존의 default-src만 있는
+  정책은 style-src로 fallback되어 인라인 CSS를 차단하므로 기존 csp-spa.conf를 교체합니다.
+  CSS 인라인 허용은 스타일 주입 제한을 완화하는 호환 설정입니다. 더 엄격하게 운영하려면
+  앱의 nonce/hash 적용을 함께 설계합니다. 정적 conf에 고정 nonce를 넣지 않습니다.
+- `mime.types`에 `.js`와 `.mjs`를 JavaScript MIME으로 등록합니다. `.mjs`를 쓰는 사이트는
+  해당 파일도 함께 교체하고 nginx.conf의 `include mime.types;`를 유지합니다. nosniff는
+  유지합니다. 외부 CDN은 자동 허용하지 않으며 필요한 출처만 CSP에 별도로 등록합니다.
 - `private-cache-spa.conf`는 API 경로와 일반 오류 응답에 no-store를 적용하고 정적 정상
   응답에는 Cache-Control을 추가하지 않습니다. normalized URI를 map으로 검사하므로
   인코딩된 /api prefix도 검사하며, 내부 오류 페이지로 바뀐 API 500에도 no-store가 남습니다.
@@ -206,7 +215,15 @@ generic-errors는 backend 오류 본문을 HTML로 가릴 수 있으므로 업�
 서로 다른 두 backend/경로/query, 전달 헤더와 보안 헤더 상속, API/정적 캐시 구분,
 보안 정규식 우선순위, 실제 101 handshake와 마스킹된 WebSocket 텍스트 프레임 왕복,
 잘못된 origin 거부, 정책 OFF, index.html 부재 시 404를 확인합니다.
+정적 CSS/.mjs의 실제 바이트·MIME과 CSP의 CSS/JS 출처 구분도 검사합니다.
 운영 인증서나 고객사 실제 backend/브라우저까지 검증한 의미는 아닙니다.
+
+`Applying inline style violates ... default-src 'self'` 오류는 위 style-src 수정 대상입니다.
+기존 **하나의** CSP 헤더를 수정해야 하며 두 번째 허용 헤더만 덧붙이면 기존 차단 정책이
+교차 적용될 수 있습니다. 같은 prefix/계정으로 nginx -t 통과 후 reload하고 브라우저를
+새로 고칩니다. MIME 오류가 text/html이면 파일 URL/배포 누락으로 SPA fallback이 응답한
+것인지 별도로 확인합니다.
+[MDN style-src](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src)를 참고하세요.
 
 [NGINX WebSocket](https://nginx.org/en/docs/http/websocket.html)과
 [proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)를 참고하세요.

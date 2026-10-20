@@ -50,7 +50,7 @@ OpenSSL의 외부 모듈/DSO 로딩은 비활성화합니다.
 symlinks.conf의 단일 OS marker만 Linux native 차단과 Windows OS ACL 요구사항으로
 렌더링하고 모든 보안 파일의 digest를 기록합니다. 렌더링 결과는 게이트에서도 재생성해 대조합니다.
 
-기존 40개 검사에 50개 패키지 보안 프로필 검사를 추가합니다. 배포된 실제 파일의 기본
+기존 40개 검사에 53개 패키지 보안 프로필 검사를 추가합니다. 배포된 실제 파일의 기본
 ON 상태로 리디렉션, unknown Host/SNI, 헤더 상속, 파일·메소드·요청 제한, 프록시·쿠키·관리자
 CIDR을 검사합니다. 32개 정책을 하나씩 OFF한 설정과 모두 OFF한 설정을 실제 바이너리로
 문법 검사하고, 대표 10개 정책은 OFF 동작과 다른 정책 유지 여부도 실제 요청으로 확인합니다.
@@ -59,6 +59,8 @@ CIDR을 검사합니다. 32개 정책을 하나씩 OFF한 설정과 모두 OFF�
 정규식 우선순위·index 부재를 추가 검사합니다. 테스트 포트/loopback backend/CIDR·인증서
 fixture 외의 보안 지시문은 교체하지 않습니다. 파일 서버 선택지는 배포된 include를 전환하여
 5 MiB 초과 실제 multipart 허용, 1 GiB 초과 요청 거부, 기본 5 MiB 복원을 추가 검사합니다.
+SPA CSS의 text/css, .mjs의 JavaScript MIME과 nosniff, CSP의 인라인 CSS 허용 및
+JavaScript 출처 제한도 검사합니다.
 함께 배포하는 Spring Boot/Tomcat YAML은 설정 예시이며 실제 고객사 backend를 실행 검증한 것은 아닙니다.
 Linux는 실제 symlink 요청 거부를 검사합니다. Windows는 native 기능이 없음을 명시한
 정책/운영 요구사항을 검사하며 NTFS 링크 차단을 실행 검증했다고 표시하지 않습니다.

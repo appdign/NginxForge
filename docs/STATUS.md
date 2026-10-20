@@ -1,5 +1,7 @@
 # 완료 기준과 실제 검증 상태
 
+r8의 SPA 인라인 CSS 호환·.mjs MIME 수정은 검증 중입니다. 아래는 기존 r7 공개 기록입니다.
+
 2026-10-20 검증 결과: **NGINX 1.30.6 / NginxForge r7 정식 발행 및 Latest 지정 완료**.
 파일 서버용 전체 요청 1 GiB 선택 정책과 Spring MVC/Tomcat의 파일당 50 MiB·일반 폼
 5 MiB 설정 예시를 추가했습니다. 기본 샘플은 5 MiB를 유지하며 사이트의 include를

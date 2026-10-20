@@ -20,7 +20,8 @@ SPA_CHECKS = ['spa:'+name for name in [
     'configuration','canonical-http','static-fallback','rest-routing','storage-routing',
     'forwarded-headers','cache-isolation','guard-precedence','websocket-tunnel',
     'websocket-origin','policy-toggles','missing-index',
-    'upload-large-body','upload-total-limit','upload-default-limit']]
+    'upload-large-body','upload-total-limit','upload-default-limit',
+    'stylesheet-assets','style-policy','javascript-module-assets']]
 
 def receive(stream, count):
     data=b''
@@ -96,6 +97,10 @@ def run_spa_profiles(binary,runtime,target,root,check,done):
             site=base/'sites/example.test/public'; site.mkdir(parents=True)
             (site/'index.html').write_bytes(b'SPA ENTRY\n')
             (site/'app.js').write_bytes(b'PUBLIC SCRIPT\n')
+            stylesheet=b'.forge-css-check { color: rgb(12, 34, 56); }\n'
+            (site/'app.css').write_bytes(stylesheet)
+            module=b'export const forgeModule = "MODULE READY";\n'
+            (site/'app.mjs').write_bytes(module)
             (site/'secret.key').write_bytes(b'PRIVATE KEY FIXTURE')
             conf=(runtime/'conf/nginx.conf').read_text(encoding='utf-8')
             conf='daemon off;\nmaster_process off;\n'+conf.replace('127.0.0.1:8080','127.0.0.1:'+str(preview_port))
@@ -192,6 +197,26 @@ def run_spa_profiles(binary,runtime,target,root,check,done):
                     status,headers,data=request(path,method='POST')
                     check(status==405,'Static method restriction missing')
                 done('spa:static-fallback')
+                status,headers,data=request('/app.css')
+                check(status==200 and data==stylesheet and headers.get_content_type()=='text/css'
+                      and headers.get('X-Content-Type-Options')=='nosniff',
+                      'Stylesheet was blocked, replaced by SPA HTML, or served with the wrong MIME type')
+                done('spa:stylesheet-assets')
+                values=headers.get_all('Content-Security-Policy') or []
+                check(len(values)==1,'Multiple CSP headers may intersect and block inline CSS')
+                directives={parts[0]:set(parts[1:]) for parts in
+                            (entry.split() for entry in values[0].split(';')) if parts}
+                check(directives.get('style-src')=={"'self'","'unsafe-inline'"}
+                      and directives.get('script-src')=={"'self'"}
+                      and directives.get('default-src')=={"'self'"}
+                      and not {'style-src-elem','style-src-attr'} & set(directives),
+                      'SPA CSS compatibility or JavaScript/source restrictions changed')
+                done('spa:style-policy')
+                status,headers,data=request('/app.mjs')
+                check(status==200 and data==module and headers.get_content_type()=='application/javascript'
+                      and headers.get('X-Content-Type-Options')=='nosniff',
+                      'ES module was blocked, replaced by SPA HTML, or served with a non-JavaScript MIME type')
+                done('spa:javascript-module-assets')
                 for method in ['GET','POST','PUT','PATCH','DELETE','OPTIONS']:
                     status,headers,data=request('/api/items?x=1',method=method)
                     seen=json.loads(data.decode()) if status==200 else {}
