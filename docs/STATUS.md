@@ -1,131 +1,76 @@
-현재 r9 수정 검증 중: 38개 분할 정책과 개별 ON/OFF를 유지하며, 사이트별 도메인을
-server_name 한 줄로 설정하도록 변경합니다. 도메인/CSP 목적지/외부 허용 목록/API/WS/backend는
-site.conf에서만 관리합니다. r9의 전체 필수 빌드·실행·발행 증거 확인 전까지 완료로 표시하지 않습니다.
-정책 통합 방식의 이전 r9 시도는 릴리즈 전에 취소했고 공개 r9는 발행되지 않았습니다.
-
 # 완료 기준과 실제 검증 상태
 
-2026-10-20 검증 결과: **NGINX 1.30.6 / NginxForge r8 정식 발행 및 Latest 지정 완료**.
-기존 SPA CSP의 default-src fallback이 인라인 CSS를 차단하던 문제를 수정했습니다.
-style-src는 동일 origin과 인라인 CSS를 허용하고 script-src는 동일 origin만 허용합니다.
-인라인 script·HTML 이벤트 핸들러·eval을 허용하지 않습니다. mime.types에 .mjs를
-JavaScript MIME으로 등록했습니다. 외부 CDN을 포괄 허용하지 않습니다.
-파일 서버의 1 GiB 선택 정책과 파일당 50 MiB·폼 5 MiB backend 예시는 유지합니다.
+2026-10-21 검증 결과: **NGINX 1.30.6 / NginxForge r9 정식 발행 및 Latest 지정 완료**.
+기존 38개 분할 정책과 개별 include ON/OFF를 유지합니다. 도메인은 site.conf 맨 위
+server_name 한 줄만 입력하고 HTTP/HTTPS 이동·동일 출처 API·현재 WSS CSP가 자동 반영됩니다.
+외부 허용 목록·CSP 목적지·API/WS/backend·쿠키/업무 제한도 site.conf에서만 설정합니다.
+nginx.conf/공통 정책에는 배포 도메인/backend를 입력하지 않습니다.
 
-- [x] Linux AMD64 musl 완전 정적 빌드
-- [x] Linux ARM64 musl 완전 정적 빌드
-- [x] Ubuntu 22.04/24.04 AMD64 실행
-- [x] Ubuntu 22.04/24.04 ARM64 실행
-- [x] Rocky Linux 8/9 AMD64 실행
-- [x] Rocky Linux 8/9 ARM64 실행
-- [x] Windows Server 2022 Runner AMD64 실행 (build 20348)
-- [x] 세 바이너리 공통 보안 기능 테스트
-- [x] 기본 사이트의 CORS/CSP·쿠키·캐시·관리/소스맵 차단 정책 실행
-- [x] 기본 32개 정책 각각 OFF 및 모두 OFF 상태 문법 검사
-- [x] 대표 10개 정책 OFF 동작과 다른 정책 유지 여부 실행 검증
-- [x] 단일 도메인 샘플의 각 선택 정책 OFF 및 모두 OFF 문법 검사
-- [x] SPA fallback·정적 메소드 제한·REST POST/PUT/PATCH/DELETE·두 목적지 실행
-- [x] URI prefix/query·전체 전달 헤더·API/정적 캐시·보안 정규식 우선순위 실행
-- [x] 실제 WebSocket 101 handshake와 마스킹된 텍스트 프레임 왕복
-- [x] WebSocket origin 거부와 OFF 동작, index.html 부재 시 404 실행
-- [x] 정적 CSS의 실제 바이트·text/css·nosniff 확인
-- [x] SPA CSP의 인라인 CSS 허용과 JavaScript 출처 제한 확인
-- [x] .mjs의 실제 바이트·JavaScript MIME·nosniff 확인
-- [x] 1 GiB 선택 시 실제 6 MiB multipart 본문이 backend에 도달
-- [x] 1 GiB 초과 Content-Length 거부 및 기본 5 MiB 정책 복원 실행
-- [x] 정책 파일의 명시적 include와 OS별 링크 정책 렌더링 검증
-- [x] 담당 범위 문서·프론트/Spring Boot 코드 전용 프롬프트·backend YAML 배포
-- [x] 공식 최신 버전 감지와 발행 후 중복 빌드·배포 생략
-- [x] GitHub Releases 다섯 파일 자동 발행 및 전체 성공 후 Latest 지정
-- [x] 공개된 다섯 파일 재다운로드 후 무결성 및 전체 포함 설정 검증
+- [x] Linux AMD64/ARM64 native musl 완전 정적 빌드
+- [x] Ubuntu 22.04/24.04, Rocky Linux 8/9에서 AMD64/ARM64 각각 실행
+- [x] Windows Server 2022 AMD64 native 실행과 build 20348 확인
+- [x] 기존 38개 분할 정책 보존과 활성 include별/모두 OFF 문법 검사
+- [x] server_name 한 줄 변경 후 이동·API·WS·CSP 자동 변경 실행
+- [x] 두 가상호스트의 root/backend/허용 목록/공개 모드/쿠키/캐시/오류/rate/본문 제한 분리
+- [x] unknown Host/SNI 거부와 현재 비표준 포트/명시적 기본 포트 처리
+- [x] 정확한 외부 Origin·하위 도메인 패턴 허용과 악성 suffix·다른 scheme/port·apex 거부
+- [x] public API wildcard/credentials 충돌 방지, API와 WS 공개의 독립성
+- [x] Origin 없는 WS 기본 거부와 사이트별 명시적 허용
+- [x] 실제 WS 101 handshake와 마스킹된 frame 왕복·전체 전달 헤더
+- [x] 정적 GET/HEAD와 REST 구분, URI prefix/query, SPA fallback/index 부재 처리
+- [x] 파일/디렉터리/관리 경로/소스맵·보안 헤더·쿠키·캐시·오류·TLS·IP 빈도 제한
+- [x] 6 MiB multipart 통과, 1 GiB 초과 Content-Length 거부, 사이트별 5 MiB 거부
+- [x] 인라인 CSS·동일 사이트 JS/MJS 허용과 인라인 JS/onclick/eval 차단
+- [x] 샘플/backend YAML/코드 프롬프트를 운영 conf와 분리
+- [x] 세 바이너리·9개 환경 전체 성공 후 다섯 릴리즈 자산 발행/Latest 지정
+- [x] 공개 다섯 파일 재다운로드·해시·manifest·원본/OS별 렌더링 재검증
+- [x] 발행 후 업스트림 재조회와 중복 빌드/발행 생략
 
-각 OS/CPU 조합에서 93개 실행 검사, 총 **837개**가 통과했습니다. 릴리즈 제어 로직의
-29개 단위 테스트도 통과했습니다. Linux 바이너리는 ELF64의 PT_INTERP 및 외부 DSO
-의존성 부재, Windows는 AMD64 PE 및 정적 CRT/시스템 DLL 의존성을 확인했습니다.
+각 환경의 기존 엔진 40개와 패키지/사이트 64개, **104개 × 9 = 936개 실행 검사**가
+통과했습니다. 릴리즈 안전성 단위 검사 30개와 actionlint도 통과했습니다.
+Linux ELF의 인터프리터/외부 DSO 부재, Windows AMD64 PE의 정적 CRT/시스템 DLL 의존성을
+확인했습니다. Linux 두 아키텍처의 소스·패치·의존성·정책은 동일합니다.
+사이트별 변경 중 공통 분할 정책 38개를 변경하지 않았음을 검사했습니다.
 
-기존 40개 엔진 검사와 35개 기본 패키지 보안 검사를 유지하고 단일 도메인 샘플의
-18개 검사를 실행합니다. HTTPS 이동, Host/SNI 거부, 정상/오류 보안 헤더,
-목록·비밀 파일·스크립트·경로 이탈·메소드·본문 크기·빈도 제한, 프록시·세션 쿠키·
-관리자 CIDR·TLS·CORS·CSP·private API 캐시·관리 경로·소스맵을 검사합니다.
-정책별 OFF와 다른 정책 유지 여부도 실제 요청으로 검사합니다.
-
-단일 도메인 샘플은 정적 GET/HEAD 제한을 정적 location에 두고 REST 메소드를 차단하지
-않는지 확인합니다. 두 backend와 URI prefix/query를 유지하고 WebSocket location의
-전체 전달 헤더를 검사합니다. TLS의 HTTP/1.1 101 handshake 뒤 마스킹된 client text
-frame을 backend까지 보내 응답 frame을 받았습니다. 잘못된/누락된 WebSocket Origin은
-거부하며 WebSocket OFF는 upgrade하지 않습니다. API/인코딩된 prefix/내부 오류의
-no-store와 정적 성공 응답의 구분, backend 보안 헤더 중복 제거도 확인했습니다.
-
-새 용량 검사는 배포된 정책 include를 실제로 전환해 6 MiB 파일의 multipart 요청이
-통과하는지 검사합니다. 1 GiB 초과 요청은 Content-Length에서 즉시 413으로 거부합니다.
-이 검사는 1 GiB 본문을 실제 전송한 부하 시험이나 Spring Boot의 multipart 파서 시험을
-뜻하지 않습니다. 5 MiB 정책을 다시 켜면 같은 크기의 요청이 거부되는지도 확인했습니다.
-
-별도의 로컬 Windows Chrome fixture 검증에서 이전 정책의 style 속성·style 태그·
-동적 style 차단과 .mjs MIME 오류를 먼저 재현했습니다. 수정 정책에서 실제 computed
-style과 동일 origin .mjs import가 정상 적용되고, 인라인 script·onclick·eval은 계속
-차단되는지 확인했습니다. 이 브라우저 검사는 고객사 앱/인증서/운영 서버 검증이 아닙니다.
-인라인 CSS 허용은 스타일 주입 제한을 완화하는 호환 선택이며 더 엄격한 CSS 정책에는
-앱의 nonce/hash 연동이 필요합니다. 고정 nonce는 제공하지 않습니다.
-
-Linux는 실제 symlink 접근 차단을 검사합니다. Windows 링크 검사는 OS 권한 검토가
-필요하다고 명시했는지 확인하는 것으로 고객사 NTFS 링크/ACL을 검증했다는 뜻이 아닙니다.
+운영 conf는 세 기반 파일(nginx.conf·mime.types·site.conf)과 분할 정책 38개, 총 41개입니다.
+44개 release_inputs와 별도 사이트 템플릿 해시를 공통 계획에서 고정합니다.
+공개 초기 site.conf는 127.0.0.1:8080에서 요청을 거부합니다. 실제 site.conf를 설치해야
+HTTPS 사이트를 제공합니다. 이전 conf.d/map과 중복 로드하지 않습니다.
+NGINX C 소스·의존성·핵심 패치는 이번 설정 변경으로 달라지지 않았습니다.
 
 | 증거 | 결과 |
 | --- | --- |
-| [빌드·실행·게이트·자동 발행](https://github.com/appdign/NginxForge/actions/runs/39412754812) | 최종 소스 첫 실행 전체 workflow success, 세 바이너리와 9개 OS/CPU 조합의 837개 검사 통과 |
-| [업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/39414063808) | 이미 발행한 r8의 중복 빌드·배포 생략 검증 |
-| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r8) | 다섯 자산 공개, draft=false, prerelease=false, Latest 확인 |
-| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r8/build-manifest.json) | 공통 소스·의존성·옵션·툴체인·설정/문서 해시·전체 실행 증거 포함 |
-| [보안 설정 안내](SECURITY-CONFIG.md) | 사이트별 ON/OFF, SPA/REST/WS, 파일 서버 용량 정책 및 KISA WEB-01~26 범위 |
-| [backend 설정 예시](backend/application-upload.yml.example) | 실제 Spring MVC/Tomcat 업로드 서비스에 별도 병합할 설정 |
-| [담당 범위와 코드 점검](SECURITY-OWNERSHIP.md) | NGINX·프레임워크·운영 설정과 프론트/Spring Boot 코드 작업 구분 |
+| [전체 빌드·실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/39459365947) | 최종 소스 전체 workflow success, 세 바이너리·9개 환경·936개 검사 |
+| [발행 후 업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/39460879027) | 같은 r9의 중복 빌드/발행 생략 |
+| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r9) | 다섯 자산, draft=false, prerelease=false, Latest 확인 |
+| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r9/build-manifest.json) | 소스·의존성·옵션·툴체인·배포 입력/사이트 템플릿 해시·실행 증거 |
+| [보안 설정 안내](SECURITY-CONFIG.md) | 분할 정책 ON/OFF·도메인 한 줄·사이트별 API/WS/CSP·KISA 범위 |
 
-빌드 소스와 릴리즈 태그 commit은 `631f2f7098b8baaa4d8a7b00a90ce171e1b597ea`입니다.
-위 소스의 첫 실행에서 모든 필수 빌드·실행·게이트·발행을 통과했습니다.
-플랫폼 검증을 생략하지 않았습니다. 공개된 다섯 파일의 GitHub 자산 SHA-256/크기,
-SHA256SUMS.txt의 네 파일 해시와 압축파일 안의 모든 설정·문서 해시를 다시 확인했습니다.
+빌드 소스: fcbbf39d8aac8934b4a6bb148b834d2ef2e6196d.
+NGINX 공식 commit: fb0e979c6dd63c018958b41eeb844947c5c21264.
+의존성: headers-more 0.40, OpenSSL 3.5.9, PCRE2 10.49, zlib 1.3.2.
 
-세 패키지의 conf에는 기본 네 파일, examples/spa-api-websocket.conf.example,
-maps/spa-api-websocket.conf와 정책 38개, 총 44개 파일이 정확히 포함되어 있습니다.
-정책은 conf.d 밖에 두어 wildcard로 자동 로드하지 않습니다. symlinks.conf는 원본에서
-OS별로 결정적으로 렌더링한 바이트와 대조했고 Linux 두 아키텍처의 전체 설정은 같습니다.
-50개 설정/문서 입력의 소스 해시를 확인했습니다. 보안 안내·담당 범위·코드 전용 프롬프트
-두 개·26개 항목 대응표·backend YAML도 포함되어 있습니다. 실제 인증서·개인키·비밀번호
-파일 및 테스트 fixture는 배포 압축파일에 포함되지 않습니다.
+Windows Chrome fixture에서 computed CSS/style 속성/style 태그/동적 style과 동일 출처 MJS
+import, 인라인 script/onclick/eval 차단을 확인했습니다. 고객사 앱/운영 서버 검증은 아닙니다.
+인라인 CSS 허용은 호환 선택이며 엄격한 스타일 정책에는 앱의 nonce/hash 연동이 필요합니다.
 
-r7과 NGINX 소스·의존성·핵심 패치·빌드 옵션은 같습니다. 기존 NginxForge 1.30.6에서도
-새 설정을 실행할 수 있습니다. 인증서/root/Origin/CSP/backend와 업무 설정을 맞추고
-같은 서비스 prefix/계정으로 nginx -t 통과 후 reload해야 합니다. 고객사 Windows 경로
-적용본은 fixture 인증서/root를 사용한 문법 확인과 실제 운영 인증서/backend 검증을
-구분합니다. 운영 서버에 자동 적용한 것은 아닙니다.
+전체 1 GiB는 파일+폼+multipart 형식/JSON 본문 상한이며 다운로드 제한은 아닙니다.
+초과 Content-Length의 즉시 거부를 검사했으며 1 GiB 전체 전송 부하 검사는 아닙니다.
+파일당 50 MiB·폼 파라미터 5 MiB는 별도 Spring MVC/Tomcat 설정이고 실제 고객사 앱을
+실행 검증한 것은 아닙니다. Origin/CORS/CSP는 인증·객체별 인가·CSRF를 대신하지 않습니다.
 
-기존 r7 사이트에는 csp-spa.conf와 mime.types 두 파일만 반영하는 별도 수정 묶음을
-제공합니다. 기존에 추가한 CSP 출처나 MIME 매핑은 병합해 유지합니다. 같은 CSP 헤더를
-수정하며 별도 허용 헤더를 덧붙이지 않습니다. nginx -t 후 reload와 브라우저 새로 고침이
-필요합니다. NGINX 실행 파일이나 site.conf 전체 교체는 이 수정에 필요하지 않습니다.
-
-업로드 URL을 모르는 파일 서버 적용본은 사이트 전체의 요청 상한을 1 GiB로 선택합니다.
-**JSON에도 NGINX 상한은 1 GiB**이며 일반 JSON을 5 MiB로 제한했다는 뜻이 아닙니다.
-1 GiB는 파일·폼·multipart 전송 형식을 포함한 전체 요청입니다. 파일당 50 MiB와 일반 폼
-5 MiB는 backend YAML을 실제 Spring MVC/Servlet + Tomcat 서비스에 병합하고 재시작해야
-적용됩니다. NGINX가 이 YAML을 자동 적용하지 않습니다. Tomcat 폼 제한은 파싱하는 일반
-폼 파라미터를 대상으로 하며 JSON/Raw body/WebSocket 메시지를 제한하지 않습니다.
-**실제 Spring 앱의 파일당 50 MiB·폼 5 MiB 제한은 여기서 실행 검증하지 않았습니다.**
-고객사 앱에서 경계값·임시 저장 공간·분할 업로드 합계·업무 할당량을 별도 확인해야 합니다.
-
-KISA 공식 2026 웹 서비스 기준은 26개 항목이며 이 결과는 **점검 항목의 자동 합격이나
-인증을 뜻하지 않습니다**. OS 계정·파일/로그 권한·Windows 링크 통제·인증서 운영과
-앱 인증·인가·CSRF·업로드 저장소·다운로드 총량은 실제 환경에서 별도 점검해야 합니다.
-고객사 브라우저·SSO·Spring Boot 소스·서비스 통합·커널·부하 검증은 여기의
-GitHub Runner/네이티브 userspace 및 fixture backend 검증과 구분합니다.
-
-OFF는 해당 지시문을 제거하므로 NGINX 기본값/상위 설정/backend 정책과 이전에 받은
-HSTS가 남을 수 있습니다. OFF한 통제를 적용 완료로 판정하지 않습니다.
-ARM64를 포함한 모든 필수 빌드·실행·릴리즈 검증을 통과했으며 이후 버전도 같은
-전체 검증을 통과해야만 발행합니다.
+Linux는 native userspace 컨테이너이며 runner 커널을 공유합니다. 링크 파일 내용의 접근을
+거부하며 SPA의 try_files는 차단된 파일 대신 정확한 공개 index를 반환할 수도 있습니다.
+Windows는 symlink 지시문 미지원이므로 OS ACL/reparse point 검토 요구를 검사했습니다.
+고객사 커널·서비스·SSO·backend 직접 포트·실제 인증서·부하·NTFS ACL은 별도 확인합니다.
+실제 운영 설정은 자동 변경하지 않았습니다. KISA WEB-01~26 대응표는 인증/자동 합격 판정이 아닙니다.
 
 ## 이전 릴리즈 기록
+
+r8은 [837개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/39412754812)을
+통과했습니다. [r8 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r8)는
+인라인 CSS 호환과 MJS MIME 수정을 처음 포함했습니다. 빌드 소스는
+631f2f7098b8baaa4d8a7b00a90ce171e1b597ea입니다.
 
 r7은 [전체 810개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/39373262622)을
 통과했습니다. [r7 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r7)는
