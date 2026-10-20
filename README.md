@@ -25,10 +25,10 @@ ARM64를 후속 과제로 미루거나 실패를 무시하지 않습니다. Linu
 - 세 줄의 공통 패치로 기본 오류 페이지의 NGINX 식별 푸터 제거
 - OpenSSL, PCRE2 JIT, zlib, HTTP/2, 리버스 프록시, gzip, rewrite
 - 동일한 NGINX 태그/커밋, 보안 패치와 의존성 잠금을 세 바이너리에 적용
-- KISA 2026 웹 서비스 26개 항목 대응표와 운영 공통 보안 설정
-- site.conf에서 사이트별 요청 1 GiB/5 MiB, CORS/WS 허용 목록·공개 모드·backend 조정
-- 한 site.conf의 여러 가상호스트 격리, REST/SPA/WebSocket·CSS/mjs 실행 검사
-- 도메인 없는 policy.conf 하나에 공통 보안 규칙 통합, 운영 conf는 네 파일
+- KISA 2026 웹 서비스 26개 항목 대응표와 공통 보안 설정·도메인별 HTTPS/프록시 예시 배포
+- 파일 서버 요청 1 GiB 선택 정책과 Spring Boot/Tomcat 파일 50 MiB·폼 5 MiB 설정 예시
+- 사이트별 SPA + REST + WebSocket 설정: 9090/9080 라우팅·Upgrade·실제 프레임 왕복 검사
+- site.conf의 정책별 include ON/OFF: CORS/CSP, 쿠키, private API no-store, 관리자/공용 관리 경로 차단
 - 프론트/Spring Boot 코드 점검 프롬프트와 NGINX·프레임워크·운영 설정 담당 범위 제공
 - Linux ELF 인터프리터·동적 섹션 차단, Windows AMD64 PE와 시스템 DLL 의존성 검사
 - 매일 09:00 KST경 공식 Stable 확인, 수동 Mainline/특정 버전/재빌드 지원
@@ -60,7 +60,7 @@ build-manifest.json
 Git 태그는 `v<NGINX version>-r<revision>`입니다. 정식 배포 파일을 덮어쓰지 않습니다.
 
 고객사 서버에는 컴파일러·WSL·Docker·MSYS2가 필요하지 않습니다. 실행 파일 외에
-설정, 인증서, 로그·임시 디렉터리는 필요합니다. 공개 초기 설정은 실제 사이트 설치 전까지 요청을 거부합니다.
+설정, 인증서, 로그·임시 디렉터리는 필요합니다. 공개 초기 설정은 요청을 거부하며 실제 사이트 설정/인증서를 별도로 설치합니다.
 단일 바이너리 교체로 업데이트할 수 있지만 다른 배포판의 옵션·동적 모듈·경로까지
 자동 호환된다고 가정하지 마세요.
 
@@ -79,7 +79,7 @@ GitHub Actions를 활성화하면 `main`의 빌드 관련 변경으로 검증 �
 - [업스트림 추적](docs/UPSTREAM.md)
 - [통합 요구사항](docs/REQUIREMENTS.md)
 - [실제 검증 상태와 완료 기준](docs/STATUS.md)
-- [site.conf 단일 관리와 KISA 2026 운영 조치](docs/SECURITY-CONFIG.md)
+- [KISA 2026 보안 설정·도메인 샘플과 운영 조치](docs/SECURITY-CONFIG.md)
 - [NGINX·앱 코드·프레임워크·운영 설정 구분](docs/SECURITY-OWNERSHIP.md)
 - [프론트엔드 코드 전용 프롬프트](docs/prompts/FRONTEND-CODE-REVIEW.md)
 - [Spring Boot 코드 전용 프롬프트](docs/prompts/SPRING-BOOT-CODE-REVIEW.md)
@@ -94,10 +94,8 @@ python -m unittest discover -s tests -p "test_*.py" -v
 바이너리 빌드는 GitHub Actions에서 수행합니다. 정식 릴리즈가 실제로 발행되고
 모든 필수 플랫폼 증거가 확인되기 전에는 프로젝트를 완료로 간주하지 않습니다.
 
-운영 설정은 conf/nginx.conf·policy.conf·site.conf·mime.types 네 파일입니다.
-실제 도메인·인증서·root·외부 허용 목록·API/WS/backend·쿠키·제한·timeout은 site.conf에서만
-관리합니다. nginx.conf/policy.conf에는 실제 도메인이나 backend 주소가 없습니다.
-가상호스트 추가 시 site.conf의 사이트 구역만 추가하며 공통 map/zone/listener는 한 번만 둡니다.
-예제·backend YAML·코드 프롬프트는 별도 참고 자료로 분리합니다. 운영 conf에는 샘플을 섞지 않습니다.
-기존 NginxForge 1.30.6 실행 파일을 사용할 수 있으며 실제 설정 검사 후 reload합니다.
-기능 포함은 KISA 점검 통과/인증을 뜻하지 않습니다. OS ACL과 앱 인증·업로드/다운로드 정책은 별도입니다.
+보안 정책 38개는 기존처럼 conf/policies 아래 목적별 파일로 유지합니다.
+conf/site.conf의 각 include 줄로 ON/OFF하며, 도메인은 사이트 구역 맨 위 server_name
+한 줄만 지정합니다. 외부 허용 목록·CSP 목적지·API·WS·backend도 site.conf에서 관리합니다.
+nginx.conf/정책에 운영 도메인을 적지 않습니다. 참고 샘플/backend YAML/코드 프롬프트는
+운영 conf와 분리하며, TLS만 HTTP 문맥 때문에 nginx.conf에서 선택합니다.

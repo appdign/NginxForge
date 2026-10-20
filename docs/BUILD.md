@@ -45,25 +45,27 @@ OpenSSL의 외부 모듈/DSO 로딩은 비활성화합니다.
 
 ## 보안 프로필과 실행 검사
 
-운영 conf는 nginx.conf·policy.conf·site.conf·mime.types 네 파일뿐입니다. 공통 정책의
-단일 OS marker만 Linux native 차단과 Windows OS ACL 요구사항으로 렌더링합니다.
-보안 안내 두 파일·KISA 대응표와 운영 파일은 release_inputs로 고정합니다. 별도 생성용
-config/site-template.conf는 site_templates 해시로 계획에 고정하고 빌드/게이트에서 재확인합니다.
-템플릿/예제/프롬프트/backend YAML은 운영 패키지에 포함하지 않습니다.
+config/runtime의 공통 설정과 38개 분할 정책·초기 site.conf, 두 보안 운영 안내와
+26개 항목 대응표를 공통 build plan의 release_inputs에서 SHA-256으로 고정합니다.
+별도 config/site-template.conf도 site_templates에서 고정하여 테스트/배포가 다른 사이트
+템플릿을 사용하는 것을 막습니다. 실제 고객사 도메인은 소스/공개 패키지에 포함하지 않습니다.
+symlinks.conf의 OS marker만 Linux native 차단과 Windows ACL 안내로 렌더링합니다.
 
-기존 40개 엔진 검사와 64개 패키지/사이트 검사를 각 OS/CPU에서 실행합니다. 두 vhost를
-한 site.conf에 구성해 root/backend/CSP/Origin 목록/용량/공개 모드가 섞이지 않는지 확인합니다.
-출처 검사 기본 포트 정규화·비표준 포트·하위 도메인 경계, 공개 API credentials, WS 독립 선택,
-Origin 없는 WS의 명시적 허용, preflight, REST 메소드, URI/query와 전달 헤더, 쿠키/캐시/오류,
-CSS/mjs MIME, 실제 WS 101/frame, 정책을 유지한 사이트별 선택 변경을 검사합니다.
-6 MiB 실제 multipart 허용, 1 GiB 초과 Content-Length 거부, 다른 사이트 5 MiB 제한도 확인합니다.
-Windows는 NTFS 링크/ACL을 실행 검증했다고 주장하지 않으며 Linux는 실제 링크 거부를 검사합니다.
-Spring/Tomcat의 파일당 50 MiB·폼 5 MiB는 별도 backend 설정이며 실제 고객사 앱 검증은 아닙니다.
+기존 40개 엔진 검사와 64개 패키지/사이트 검사를 9개 필수 환경에서 실행합니다.
+실제 패키지의 38개 정책을 유지하면서 생성한 두 가상호스트를 같은 프로세스에서 검사합니다.
+각 활성 include를 하나씩 OFF 및 모두 OFF한 문법, 현재 호스트/포트 기반 CSP, 도메인 한 줄
+변경, unknown Host/SNI 거부, backend/root 분리, 정확한/와일드카드 외부 Origin과 악성 suffix/
+scheme/port 거부, API 공개/WS 공개/Origin 없는 WS의 독립성을 검증합니다.
+정책 파일을 변경하지 않은 상태에서 사이트별 CSP/쿠키/캐시/오류/ACL/rate/본문 제한을 바꾸고
+다른 사이트에 전파되지 않는지도 확인합니다. 6 MiB multipart 허용·1 GiB 초과 거부·5 MiB
+사이트별 제한, 실제 WebSocket 101/frame 왕복, CSS/MJS MIME과 CSP 경계도 검사합니다.
+Spring Boot의 파일당 50 MiB·폼 5 MiB는 별도 설정 참고이며 실제 앱 검증을 의미하지 않습니다.
+Linux는 실제 symlink 거부를 검사하고 Windows는 OS ACL 검토 필요 문구/미지원 지시문 부재를 검사합니다.
 
 ## 실행 검사와 릴리즈 게이트
 
 동일한 `tests/run-integration.py`가 9개 OS/CPU 조합에서 **패키지를 풀어 실제 배포 바이너리**로
-실행됩니다. 버전, 빌드 옵션, 유효/무효 설정, 운영 공통 설정, HTTP·HTTPS 서버, 정적 파일,
+실행됩니다. 버전, 빌드 옵션, 유효/무효 설정, 공개 초기 설정, HTTP·HTTPS 서버, 정적 파일,
 HEAD, 404·500, 프록시 성공·오류, Server 헤더 제거/변경, X-Powered-By 제거,
 gzip, rewrite, TLS 1.2/1.3와 HTTP/2 ALPN/SETTINGS를 검사합니다.
 테스트 인증서와 키는 loopback 전용 공개 fixture입니다.

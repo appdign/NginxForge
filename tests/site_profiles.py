@@ -1,4 +1,4 @@
-"""Exercise one-file site controls against the exact packaged common policy."""
+"""Exercise one-file site controls against the exact packaged split policies."""
 import hashlib
 import http.client
 import json
@@ -39,11 +39,13 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
     mapping=json.loads((runtime/'security/kisa-2026.json').read_text(encoding='utf-8'))
     check(mapping['control_count']==26 and not mapping['certification_claim'] and len(mapping['controls'])==26,'KISA scope missing')
     done('profile:package-integrity')
+    policies={p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf/policies').rglob('*.conf')}
+    check(len(policies)==38,'Expected 38 separate policy files')
     check({p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf').rglob('*') if p.is_file()}==
-          {'nginx.conf','mime.types','policy.conf','site.conf'},'Operational conf must contain exactly four files')
-    for name in ['nginx.conf','policy.conf']:
+          policies|{'nginx.conf','mime.types','site.conf'},'Operational conf contains sample/legacy files')
+    for name in ['nginx.conf']+sorted(policies):
         text=(runtime/'conf'/name).read_text(encoding='utf-8')
-        check(not any(v in text for v in ['example.test','edoc.','server_name','proxy_pass','wss://']),
+        check(not any(v in text for v in ['example.test','edoc.','proxy_pass','wss://']),
               'Site values leaked into '+name)
     check(not (runtime/'backend').exists() and not (runtime/'prompts').exists(),'Reference examples leaked into runtime')
     done('profile:policy-layout')
@@ -64,7 +66,7 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
             (base/'logs').mkdir();(base/'temp').mkdir()
             roots={}
             for host in ['alpha.test','beta.test']:
-                site=base/'sites'/host;site.mkdir(parents=True);roots[host]=site
+                site=base/'sites'/host.replace('.test','');site.mkdir(parents=True);roots[host]=site
                 (site/'index.html').write_bytes(('SPA '+host+'\n').encode())
                 (site/'app.css').write_bytes(b'.forge { color: rgb(12,34,56); }\n')
                 (site/'app.mjs').write_bytes(b'export const ready="MODULE READY";\n')
@@ -85,14 +87,18 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                     body='1g' if host=='alpha.test' else '5m'))
             template=render_sites(specs,[('beta.test','https://portal.partner.test'),('beta.test','https://*.trusted.test')])
             site_path=base/'conf/site.conf';site_path.write_bytes(template.encode('utf-8'))
-            policy_bytes=(base/'conf/policy.conf').read_bytes()
+            policy_bytes={name:(base/'conf'/name).read_bytes() for name in policies}
+            check(all(template.count(spec['host'])==1 for spec in specs),'Domain must appear exactly once per site')
             command=[str(binary),'-p',base.resolve().as_posix()+'/','-c','conf/nginx.conf']
             def syntax(text=None):
                 if text is not None:site_path.write_bytes(text.encode('utf-8'))
                 result=subprocess.run(command+['-t'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,timeout=30)
                 check(result.returncode==0,result.stdout)
             syntax();done('profile:configuration');done('spa:configuration')
-            for text in [template.replace('include policy.conf;','# include policy.conf;'),
+            includes=re.findall(r'^    include (policies/[^;]+);',template,re.M)
+            for name in sorted(set(includes)):
+                syntax(template.replace('include '+name+';','# include '+name+';'))
+            for text in [re.sub(r'^( +)include policies/[^;]+;',r'\1# policy OFF',template,flags=re.M),
                          template.replace('set $site_cors_mode restricted;','set $site_cors_mode public;'),
                          template.replace('set $site_ws_mode restricted;','set $site_ws_mode public;'),
                          template.replace('set $site_allow_originless_ws 0;','set $site_allow_originless_ws 1;')]:syntax(text)
@@ -143,8 +149,9 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                     result=json.loads(receive(sock,length).decode());check(result['message']==text.decode(),'WS payload changed')
                 sock.close();return status,result
             def section_change(text,host,change):
-                marker='# BEGIN SITE: '+host+'\n';before,part=text.split(marker,1);block,after=part.split('# END SITE: '+host,1)
-                return before+marker+change(block)+'# END SITE: '+host+after
+                site_id='site_'+str([spec['host'] for spec in specs].index(host)+1)
+                marker='# BEGIN SITE: '+site_id+'\n';before,part=text.split(marker,1);block,after=part.split('# END SITE: '+site_id,1)
+                return before+marker+change(block)+'# END SITE: '+site_id+after
             def denied(path):
                 status,headers,data=request('alpha.test',path)
                 check(status in (400,403,404) and b'PRIVATE FIXTURE' not in data and b'OUTSIDE SECRET' not in data,'Forbidden file served: '+path)
@@ -245,8 +252,8 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                 if target.startswith('linux-'):
                     denied('/linked.txt');done('profile:linux-symlink-denial')
                 else:
-                    check(b'requires' not in policy_bytes or b'Windows' in policy_bytes,'Windows scope missing')
-                    check(b'Windows' in policy_bytes and not any(line.strip().startswith(b'disable_symlinks ') for line in policy_bytes.splitlines()),'Windows claims native link protection');done('profile:windows-link-review-documented')
+                    link_policy=policy_bytes['policies/server/symlinks.conf']
+                    check(b'Windows' in link_policy and not any(line.strip().startswith(b'disable_symlinks ') for line in link_policy.splitlines()),'Windows claims native link protection');done('profile:windows-link-review-documented')
                 limited=False
                 for _ in range(100):
                     if request('alpha.test','/index.html',paced=False)[0]==429:limited=True;break
@@ -259,7 +266,7 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                     block=re.sub(r'    set \$site_csp .*?;\n','    set $site_csp "";\n',block)
                     block=block.replace('    limit_req zone=site_requests burst=20 nodelay;','    # limit_req zone=site_requests burst=20 nodelay;')
                     block=block.replace('    proxy_intercept_errors on;','    proxy_intercept_errors off;')
-                    for line in ['proxy_cookie_flags JSESSIONID secure httponly samesite=lax;','proxy_hide_header Cache-Control;','proxy_hide_header Expires;','add_header Cache-Control $site_cache_control always;']:
+                    for line in ['proxy_cookie_flags JSESSIONID secure httponly samesite=lax;','include policies/server/private-cache-spa.conf;']:
                         block=block.replace('    '+line,'    # '+line)
                     return block.replace('    location /api/ {','    location /api/admin/ { allow 192.0.2.123; deny all; proxy_pass http://'+specs[0]['spring']+'; }\n    location /api/ {')
                 public=section_change(template,'alpha.test',public_options);start(public)
@@ -283,7 +290,17 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                 check(websocket(value=None)[0]==101 and websocket('beta.test',None)[0]==403,'Originless WS option crossed vhosts');done('site:originless-websocket-option');done('spa:policy-toggles')
                 check(request('alpha.test','/api/upload',method='POST',headers={'Content-Length':str(len(payload))})[0]==413,'Site-only 5 MiB option failed');done('spa:upload-default-limit')
                 (roots['alpha.test']/'index.html').unlink();check(request('alpha.test','/documents/123')[0]==404,'Missing index loop');done('spa:missing-index')
-                check((base/'conf/policy.conf').read_bytes()==policy_bytes,'Site changes mutated common policy');done('site:common-policy-unchanged')
+                stop()
+                renamed=template.replace('server_name beta.test;','server_name gamma.test;')
+                start(renamed)
+                status,headers,data=request('gamma.test','/index.html')
+                check(status==200 and data==b'SPA beta.test\n' and ('wss://gamma.test:'+str(https_port)) in headers['Content-Security-Policy'],'One-line domain change did not update CSP/routing')
+                check(request('gamma.test','/api/items',headers={'Origin':origin('gamma.test')})[0]==200,'One-line domain change did not update same-origin API')
+                check(request('gamma.test','/api/items',headers={'Origin':'https://portal.partner.test'})[0]==200,'Domain change broke site-ID external allowance')
+                check(websocket('gamma.test')[0]==101,'One-line domain change did not update WebSocket')
+                status,headers,data=request('gamma.test','/screen',secure=False)
+                check(status==308 and headers['Location']==origin('gamma.test')+'/screen','One-line domain change did not update redirect')
+                check(all((base/'conf'/name).read_bytes()==data for name,data in policy_bytes.items()),'Site changes mutated split policies');done('site:common-policy-unchanged')
             finally:stop();log.close()
     finally:
         for server in servers:server.shutdown();server.server_close()

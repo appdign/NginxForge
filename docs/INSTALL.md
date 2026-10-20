@@ -22,11 +22,12 @@ sudo /opt/nginxforge/sbin/nginx
 ```
 
 기본 prefix는 `/opt/nginxforge`, 설정은 `conf/nginx.conf`입니다. `-p`와 `-c`로
-고정 경로를 명시할 수 있습니다. 공개 초기 site.conf는 알 수 없는 요청을 거부합니다.
-운영 HTTPS는 [보안 설정 문서](SECURITY-CONFIG.md)를 따라 실제 site.conf를 설치합니다.
-conf에는 nginx.conf·policy.conf·site.conf·mime.types 네 파일을 함께 두고 오류 HTML도 설치합니다.
-사이트별 도메인·인증서·root·외부 허용 범위·API/WS/backend·제한값은 site.conf에서만 변경합니다.
-예제와 참고 자료는 운영 패키지에서 분리합니다. 기존 설정은 자동 변경하지 않습니다.
+고정 경로를 명시할 수 있습니다. 공개 초기 site.conf는 HTTP 요청/알 수 없는 TLS SNI를
+거부합니다. [보안 설정 문서](SECURITY-CONFIG.md)에 따라 실제 site.conf를 준비합니다.
+도메인은 맨 위 server_name 한 줄, 인증서/root·API·WS/backend·외부 허용 목록도 같은 파일에서
+설정합니다. 기존 38개 분할 정책의 include 줄 앞에 #을 붙여 해당 사이트에서 OFF합니다.
+conf/policies 전체와 오류 HTML을 함께 설치하고 nginx -t를 통과해야 합니다.
+생성용 템플릿과 backend/코드 참고 자료는 운영 conf에 포함하지 않습니다.
 프로세스 사용자에게 로그·temp 디렉터리 권한을 부여하고,
 운영에서는 전용 비특권 사용자와 조직의 systemd/SELinux 정책을 적용하세요.
 root로 기동할 때의 기본 worker 계정은 두 Linux 배포판에 공통으로 존재하는 `daemon:daemon`입니다.

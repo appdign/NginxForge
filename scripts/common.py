@@ -9,7 +9,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 SECURITY_DOCS = ['docs/SECURITY-CONFIG.md', 'docs/SECURITY-OWNERSHIP.md']
-PLATFORM_POLICY_SOURCE = 'config/runtime/policy.conf'
+PLATFORM_POLICY_SOURCE = 'config/runtime/policies/server/symlinks.conf'
 PLATFORM_POLICY_MARKER = b'# NGINXFORGE_PLATFORM_POLICY'
 
 def render_platform_policy(source, target):
