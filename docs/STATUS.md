@@ -1,5 +1,7 @@
 # 완료 기준과 실제 검증 상태
 
+r6의 단일 도메인 SPA/REST/WebSocket 샘플은 검증 중입니다. 아래는 기존 r5 공개 기록입니다.
+
 2026-10-19 검증 결과: **NGINX 1.30.6 / NginxForge r5 정식 발행 및 Latest 지정 완료**.
 32개 정책 파일과 site.conf.example의 개별 include 스위치를 포함한 실제 배포 압축파일로
 검증했습니다. 기본값은 모든 정책 ON이며 include 앞에 #을 붙여 프론트/API별로 OFF할 수

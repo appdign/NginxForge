@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from spa_profiles import SPA_CHECKS, run_spa_profiles
 
 COMMON_CHECKS = ['profile:' + name for name in [
     'package-integrity', 'configuration', 'http-redirect', 'unknown-host', 'unknown-sni',
@@ -22,7 +23,7 @@ COMMON_CHECKS = ['profile:' + name for name in [
     'session-cookie-flags', 'admin-acl', 'tls12', 'tls13', 'rate-limit',
     'browser-policy', 'cors-preflight', 'cors-rejection', 'cors-no-origin',
     'api-no-store', 'management-denial', 'sourcemap-denial', 'cookie-scope', 'policy-layout',
-    'policy-toggle-syntax', 'policy-toggle-isolation']]
+    'policy-toggle-syntax', 'policy-toggle-isolation']] + SPA_CHECKS
 
 def platform_checks(target):
     return ['profile:linux-symlink-denial'] if target.startswith('linux-') else ['profile:windows-link-review-documented']
@@ -62,12 +63,15 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
     config_files={p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf').rglob('*') if p.is_file()}
     policy_files={p.relative_to(runtime/'conf').as_posix() for p in (runtime/'conf/policies').rglob('*.conf')}
     source_policies={p.relative_to(root/'config/runtime').as_posix() for p in (root/'config/runtime/policies').rglob('*.conf')}
-    check(policy_files==source_policies and len(policy_files)==32, 'Missing or unexpected policy files')
-    check(config_files=={'nginx.conf','mime.types','conf.d/site.conf.example','conf.d/README.md'}|policy_files,
+    check(policy_files==source_policies and len(policy_files)==37, 'Missing or unexpected policy files')
+    check(config_files=={'nginx.conf','mime.types','conf.d/site.conf.example','conf.d/README.md',
+                         'examples/spa-api-websocket.conf.example','maps/spa-api-websocket.conf'}|policy_files,
           'Unexpected configuration files: '+repr(config_files))
     site_template=(runtime/'conf/conf.d/site.conf.example').read_text(encoding='utf-8')
     main_template=(runtime/'conf/nginx.conf').read_text(encoding='utf-8')
-    selected=set(re.findall(r'^\s*include (policies/[^;]+);',main_template+'\n'+site_template,re.M))
+    spa_template=(runtime/'conf/examples/spa-api-websocket.conf.example').read_text(encoding='utf-8')
+    base_policies=set(re.findall(r'^\s*include (policies/[^;]+);',main_template+'\n'+site_template,re.M))
+    selected=base_policies|set(re.findall(r'^\s*include (policies/[^;]+);',spa_template,re.M))
     check(selected==policy_files, 'Policies must have explicit ON switches, without wildcard loading')
     done('profile:policy-layout')
     def port():
@@ -122,7 +126,7 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
                              else line for line in source.splitlines())+'\n'
         try:
             # Each individual OFF switch and the combined OFF state must parse natively.
-            for disabled in [{name} for name in sorted(policy_files)]+[policy_files]:
+            for disabled in [{name} for name in sorted(base_policies)]+[base_policies]:
                 (base/'conf/nginx.conf').write_text(switched_off(config,disabled),encoding='utf-8')
                 (base/'conf/conf.d/site.conf').write_text(switched_off(text,disabled),encoding='utf-8')
                 result=subprocess.run(command+['-t'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
@@ -355,3 +359,4 @@ def run_profiles(binary, runtime, metadata, target, root, check, done):
             stop_server()
             log.close()
             backend.shutdown(); backend.server_close()
+    run_spa_profiles(binary,runtime,target,root,check,done)

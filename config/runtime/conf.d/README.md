@@ -4,3 +4,6 @@ Each include in site.conf is an ON/OFF switch: add # to disable, remove # to ena
 Policies are in conf/policies, outside this directory, and never loaded by a wildcard.
 Frontend/API switches are independent. HTTP-only TLS policy is in nginx.conf.
 Keep shared maps/zones and add_header_inherit merge. See SECURITY-CONFIG.md.
+For a single-host SPA/REST/WebSocket site, copy examples/spa-api-websocket.conf.example
+to conf.d/site.conf instead of activating the two-domain site example.
+Keep its HTTP-level maps include outside server blocks. See SECURITY-CONFIG.md.

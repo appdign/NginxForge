@@ -26,7 +26,8 @@ include policies/server/csp.conf; # ON: CSP 콘텐츠 출처 제한
 | --- | --- |
 | `conf/nginx.conf` | HTTP 공통 기반: 로그, MIME, CORS map, 요청 제한 zone, 헤더 상속 |
 | `conf/conf.d/site.conf.example` → `site.conf` | 도메인·인증서·root·고정 backend와 정책별 include 스위치 |
-| `conf/policies/server/*.conf` | server 문맥에서 선택하는 정책. wildcard로 자동 로드하지 않음 |
+| `conf/policies/server/*.conf` | server 정책. methods-static은 정적 location에서도 사용. wildcard 자동 로드 없음 |
+| `conf/policies/location/*.conf` | REST 메소드·WebSocket처럼 해당 proxy location에서 선택하는 정책 |
 | `conf/policies/http/tls.conf` | HTTP 문맥의 공유 TLS 정책. nginx.conf의 include로 ON/OFF |
 | `conf/policies/http/default-listeners.conf` | 기본 Host/SNI 거부 리스너. site.conf 최상단에서 ON/OFF |
 
@@ -147,6 +148,67 @@ OS 계정·파일 권한은 별도로 적용합니다. IPv6 리스너와 방화�
 [보안 담당 범위](SECURITY-OWNERSHIP.md), [프론트 코드 전용 프롬프트](prompts/FRONTEND-CODE-REVIEW.md),
 [Spring Boot 코드 전용 프롬프트](prompts/SPRING-BOOT-CODE-REVIEW.md)를 함께 제공합니다.
 앱/OS/인증 서버 설정과 코드로 고쳐야 하는 결함은 해당 담당 범위에 남깁니다.
+
+## 단일 도메인 SPA + REST + WebSocket
+
+`conf/examples/spa-api-websocket.conf.example`을 `conf/conf.d/site.conf`로 복사하면
+프론트와 API를 한 HTTPS 도메인에서 제공합니다. 기존 두 도메인 샘플과 동시에 같은
+listen/server_name/default_server를 중복 활성화하지 않습니다. 새 샘플도 개별 include 앞에
+#을 붙여 정책을 끌 수 있습니다.
+
+| 경로 | 동작 |
+| --- | --- |
+| /api/... | 127.0.0.1:9090, URI prefix/query 유지 |
+| /storagewiz/... | 127.0.0.1:9080, URI prefix/query 유지 |
+| /process_file/... | 127.0.0.1:9090, 일반 HTTP와 WebSocket upgrade |
+| 그 외 화면 경로 | 정적 파일 우선, 없으면 /index.html SPA fallback |
+
+운영 도메인·인증서·root·포트를 사이트 파일에서 맞추고,
+`conf/maps/spa-api-websocket.conf`의 HTTPS origin과
+`conf/policies/server/csp-spa.conf`의 WSS origin도 같은 도메인으로 바꿉니다.
+Windows에서는 D:/... 절대 경로를 사용할 수 있습니다.
+실제 인증서/개인키·운영 파일·backend는 배포 묶음에 포함하지 않습니다.
+
+- map은 HTTP 문맥에서만 유효합니다. 사이트 파일 최상단의 `include maps/spa-api-websocket.conf;`가
+  server 밖에 있으므로 주어진 Upgrade/Connection map을 따로 server 안에 복사하지 않습니다.
+- `proxy_pass` 끝에 /를 넣지 않아 /api, /storagewiz, /process_file prefix와 query를 유지합니다.
+  슬래시 없는 정확한 prefix는 308로 슬래시를 붙여 SPA HTML 응답으로 빠지지 않게 합니다.
+- `methods-static.conf`는 정적 location과 /index.html에만 둡니다. server 전체에 넣으면
+  POST/PUT/PATCH/DELETE가 차단됩니다. API는 `policies/location/methods-rest.conf`로
+  GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS를 허용합니다.
+- `policies/location/websocket.conf`에 Upgrade/Connection과 Host·실제 IP·전달 헤더 전체를
+  명시합니다. 하위 proxy_set_header는 상위 목록을 상속하지 않으므로 WS 헤더 두 줄만
+  추가하고 나머지를 상속받는다고 가정하지 않습니다.
+- WebSocket idle read/send timeout은 3600초입니다. 총 연결 수명을 보장하는 값이 아니며
+  backend ping, 세션 만료, 인증·인가와 재접속 처리는 앱에서 유지합니다.
+- `policies/location/websocket-origin.conf`는 정확한 HTTPS origin의 upgrade만 허용합니다.
+  잘못된 origin, null, Origin 없는 WebSocket은 기본 거부합니다. native 클라이언트가
+  필요하면 Origin/토큰 인증 요구사항을 확인하고 map을 명시적으로 조정합니다.
+  Origin 없는 일반 HTTP는 허용합니다. 이 검사는 로그인·객체별 인가를 대체하지 않습니다.
+- CSP connect-src에는 self와 실제 wss://도메인을 지정합니다. 실제 JS/CSS/이미지·SSO 출처를
+  확인하고 필요한 항목만 추가합니다. 같은 origin SPA/API라 NGINX CORS 응답은 추가하지 않습니다.
+- `private-cache-spa.conf`는 API 경로와 일반 오류 응답에 no-store를 적용하고 정적 정상
+  응답에는 Cache-Control을 추가하지 않습니다. normalized URI를 map으로 검사하므로
+  인코딩된 /api prefix도 검사하며, 내부 오류 페이지로 바뀐 API 500에도 no-store가 남습니다.
+  헤더 정책과 같은 server 수준에서 backend cache/CSP 등의 소유권을 유지합니다.
+- proxy location에 ^~를 붙이면 정규식 보안 location을 건너뛸 수 있으므로 샘플에는 넣지 않습니다.
+  비밀 파일·스크립트·관리 경로·소스맵은 SPA fallback이나 backend보다 먼저 차단합니다.
+- 기존 `admin-acl.conf`는 두 도메인 샘플의 forge_spring upstream용입니다. 이 샘플에
+  그대로 복사하지 않습니다. 실제 관리자 URI·VPN CIDR·목적지에 맞는 제한을 별도로 구성하고
+  Spring Boot 인증/인가를 유지합니다.
+
+기본 요청 본문 5 MiB, IP당 10r/s·burst 20, 연결 20은 이 사이트에도 적용됩니다.
+파일 업로드 크기와 NAT 뒤 사용자 수/장기 WebSocket 수에 맞게 해당 정책을 조정합니다.
+generic-errors는 backend 오류 본문을 HTML로 가릴 수 있으므로 업무 JSON 오류 처리를 확인합니다.
+
+실행 검사는 SPA history fallback, 정적 메소드 제한과 REST POST/PUT/PATCH/DELETE,
+서로 다른 두 backend/경로/query, 전달 헤더와 보안 헤더 상속, API/정적 캐시 구분,
+보안 정규식 우선순위, 실제 101 handshake와 마스킹된 WebSocket 텍스트 프레임 왕복,
+잘못된 origin 거부, 정책 OFF, index.html 부재 시 404를 확인합니다.
+운영 인증서나 고객사 실제 backend/브라우저까지 검증한 의미는 아닙니다.
+
+[NGINX WebSocket](https://nginx.org/en/docs/http/websocket.html)과
+[proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)를 참고하세요.
 
 ## 운영체제별 권한과 링크
 

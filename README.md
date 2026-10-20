@@ -26,6 +26,7 @@ ARM64를 후속 과제로 미루거나 실패를 무시하지 않습니다. Linu
 - OpenSSL, PCRE2 JIT, zlib, HTTP/2, 리버스 프록시, gzip, rewrite
 - 동일한 NGINX 태그/커밋, 보안 패치와 의존성 잠금을 세 바이너리에 적용
 - KISA 2026 웹 서비스 26개 항목 대응표와 공통 보안 설정·도메인별 HTTPS/프록시 예시 배포
+- 단일 도메인 SPA + REST + WebSocket 샘플: 9090/9080 라우팅·Upgrade·실제 프레임 왕복 검사
 - site.conf의 정책별 include ON/OFF: CORS/CSP, 쿠키, private API no-store, 관리자/공용 관리 경로 차단
 - 프론트/Spring Boot 코드 점검 프롬프트와 NGINX·프레임워크·운영 설정 담당 범위 제공
 - Linux ELF 인터프리터·동적 섹션 차단, Windows AMD64 PE와 시스템 DLL 의존성 검사
@@ -96,6 +97,7 @@ python -m unittest discover -s tests -p "test_*.py" -v
 정책별 ON/OFF를 선택합니다. 기본값은 모든 정책 ON이며 줄 앞에 `#`을 붙이면 해당
 프론트/API 도메인에서 OFF입니다. 목적별 파일은 `conf/policies/`에 있고 wildcard로
 자동 로드하지 않습니다. TLS는 HTTP 문맥 때문에 nginx.conf에서 선택합니다.
+단일 도메인 SPA/API/WS는 `conf/examples/spa-api-websocket.conf.example`을 사용합니다.
 실제 도메인·인증서·origin·backend·관리자 CIDR을 맞추고 MIME 데이터/오류 HTML과 정책
 디렉터리를 함께 설치합니다. NGINX 1.29.3+이며 기존 NginxForge 1.30.6에서도 사용할 수 있습니다.
 새 설치 기본 설정은 localhost만 수신합니다. 기존 설정을 자동 덮어쓰지 않습니다. 보안 기능·샘플 포함은 KISA 점검 통과나

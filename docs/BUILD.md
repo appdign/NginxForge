@@ -45,16 +45,19 @@ OpenSSL의 외부 모듈/DSO 로딩은 비활성화합니다.
 
 ## 보안 프로필과 실행 검사
 
-`config/runtime`의 nginx.conf·사이트 스위치 목록·32개 정책 파일, 보안 운영 문서와 26개 항목
+`config/runtime`의 nginx.conf·사이트 스위치 목록·37개 정책 파일·SPA/WS map, 보안 운영 문서와 26개 항목
 대응표를 공통 build plan에서 SHA-256으로 고정합니다. 텍스트는 LF로 통일합니다.
 symlinks.conf의 단일 OS marker만 Linux native 차단과 Windows OS ACL 요구사항으로
 렌더링하고 모든 보안 파일의 digest를 기록합니다. 렌더링 결과는 게이트에서도 재생성해 대조합니다.
 
-기존 40개 검사에 35개 패키지 보안 프로필 검사를 추가합니다. 배포된 실제 파일의 기본
+기존 40개 검사에 47개 패키지 보안 프로필 검사를 추가합니다. 배포된 실제 파일의 기본
 ON 상태로 리디렉션, unknown Host/SNI, 헤더 상속, 파일·메소드·요청 제한, 프록시·쿠키·관리자
 CIDR을 검사합니다. 32개 정책을 하나씩 OFF한 설정과 모두 OFF한 설정을 실제 바이너리로
 문법 검사하고, 대표 10개 정책은 OFF 동작과 다른 정책 유지 여부도 실제 요청으로 확인합니다.
-테스트용 포트/loopback backend/CIDR·인증서 fixture 외의 보안 지시문은 교체하지 않습니다.
+단일 도메인 SPA/REST/WebSocket 샘플은 선택된 정책 각각 OFF와 모두 OFF의 문법 및
+실제 101/frame 왕복, origin 거부, 두 목적지와 prefix/query 유지, REST 메소드·헤더·캐시·
+정규식 우선순위·index 부재를 추가 검사합니다. 테스트 포트/loopback backend/CIDR·인증서
+fixture 외의 보안 지시문은 교체하지 않습니다.
 Linux는 실제 symlink 요청 거부를 검사합니다. Windows는 native 기능이 없음을 명시한
 정책/운영 요구사항을 검사하며 NTFS 링크 차단을 실행 검증했다고 표시하지 않습니다.
 
