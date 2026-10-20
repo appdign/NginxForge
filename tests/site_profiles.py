@@ -62,7 +62,9 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
     process=None
     try:
         with tempfile.TemporaryDirectory(prefix='forge-sites-') as temp:
-            base=Path(temp);shutil.copytree(str(runtime/'conf'),str(base/'conf'));shutil.copytree(str(runtime/'html'),str(base/'html'))
+            # Windows runners can expose TEMP through an 8.3 alias such as RUNNER~1.
+            # NGINX rejects short-name file paths; normalize before rendering absolute roots.
+            base=Path(temp).resolve();shutil.copytree(str(runtime/'conf'),str(base/'conf'));shutil.copytree(str(runtime/'html'),str(base/'html'))
             (base/'logs').mkdir();(base/'temp').mkdir()
             roots={}
             for host in ['alpha.test','beta.test']:
@@ -174,7 +176,8 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                 else:raise AssertionError('Unknown SNI accepted')
                 done('profile:unknown-sni')
                 for host in roots:
-                    status,headers,data=request(host,'/index.html');check(status==200 and data==('SPA '+host+'\n').encode(),'Wrong virtualhost root')
+                    status,headers,data=request(host,'/index.html')
+                    check(status==200 and data==('SPA '+host+'\n').encode(),'Wrong virtualhost root for '+host+': status='+str(status)+' body='+repr(data[:200])+' root='+str(roots[host])+' log='+(base/'logs/error.log').read_text(encoding='utf-8',errors='replace')[-2000:])
                     check(('wss://'+host+':'+str(https_port)) in headers['Content-Security-Policy'],'CSP used another host/port')
                 done('profile:static-https');done('site:dynamic-csp-host')
                 for path in ['/index.html','/secret.key','/api/fail']:
