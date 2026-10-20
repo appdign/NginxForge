@@ -1,12 +1,11 @@
 # 완료 기준과 실제 검증 상태
 
-r8의 SPA 인라인 CSS 호환·.mjs MIME 수정은 검증 중입니다. 아래는 기존 r7 공개 기록입니다.
-
-2026-10-20 검증 결과: **NGINX 1.30.6 / NginxForge r7 정식 발행 및 Latest 지정 완료**.
-파일 서버용 전체 요청 1 GiB 선택 정책과 Spring MVC/Tomcat의 파일당 50 MiB·일반 폼
-5 MiB 설정 예시를 추가했습니다. 기본 샘플은 5 MiB를 유지하며 사이트의 include를
-전환해 1 GiB를 선택합니다. 두 정책을 같은 문맥에서 동시에 켜지 않습니다.
-기존 단일 도메인 SPA/REST/WebSocket 동작과 개별 정책 ON/OFF 검증을 유지했습니다.
+2026-10-20 검증 결과: **NGINX 1.30.6 / NginxForge r8 정식 발행 및 Latest 지정 완료**.
+기존 SPA CSP의 default-src fallback이 인라인 CSS를 차단하던 문제를 수정했습니다.
+style-src는 동일 origin과 인라인 CSS를 허용하고 script-src는 동일 origin만 허용합니다.
+인라인 script·HTML 이벤트 핸들러·eval을 허용하지 않습니다. mime.types에 .mjs를
+JavaScript MIME으로 등록했습니다. 외부 CDN을 포괄 허용하지 않습니다.
+파일 서버의 1 GiB 선택 정책과 파일당 50 MiB·폼 5 MiB backend 예시는 유지합니다.
 
 - [x] Linux AMD64 musl 완전 정적 빌드
 - [x] Linux ARM64 musl 완전 정적 빌드
@@ -24,6 +23,9 @@ r8의 SPA 인라인 CSS 호환·.mjs MIME 수정은 검증 중입니다. 아래�
 - [x] URI prefix/query·전체 전달 헤더·API/정적 캐시·보안 정규식 우선순위 실행
 - [x] 실제 WebSocket 101 handshake와 마스킹된 텍스트 프레임 왕복
 - [x] WebSocket origin 거부와 OFF 동작, index.html 부재 시 404 실행
+- [x] 정적 CSS의 실제 바이트·text/css·nosniff 확인
+- [x] SPA CSP의 인라인 CSS 허용과 JavaScript 출처 제한 확인
+- [x] .mjs의 실제 바이트·JavaScript MIME·nosniff 확인
 - [x] 1 GiB 선택 시 실제 6 MiB multipart 본문이 backend에 도달
 - [x] 1 GiB 초과 Content-Length 거부 및 기본 5 MiB 정책 복원 실행
 - [x] 정책 파일의 명시적 include와 OS별 링크 정책 렌더링 검증
@@ -32,12 +34,12 @@ r8의 SPA 인라인 CSS 호환·.mjs MIME 수정은 검증 중입니다. 아래�
 - [x] GitHub Releases 다섯 파일 자동 발행 및 전체 성공 후 Latest 지정
 - [x] 공개된 다섯 파일 재다운로드 후 무결성 및 전체 포함 설정 검증
 
-각 OS/CPU 조합에서 90개 실행 검사, 총 **810개**가 통과했습니다. 릴리즈 제어 로직의
+각 OS/CPU 조합에서 93개 실행 검사, 총 **837개**가 통과했습니다. 릴리즈 제어 로직의
 29개 단위 테스트도 통과했습니다. Linux 바이너리는 ELF64의 PT_INTERP 및 외부 DSO
 의존성 부재, Windows는 AMD64 PE 및 정적 CRT/시스템 DLL 의존성을 확인했습니다.
 
 기존 40개 엔진 검사와 35개 기본 패키지 보안 검사를 유지하고 단일 도메인 샘플의
-15개 검사를 실행합니다. HTTPS 이동, Host/SNI 거부, 정상/오류 보안 헤더,
+18개 검사를 실행합니다. HTTPS 이동, Host/SNI 거부, 정상/오류 보안 헤더,
 목록·비밀 파일·스크립트·경로 이탈·메소드·본문 크기·빈도 제한, 프록시·세션 쿠키·
 관리자 CIDR·TLS·CORS·CSP·private API 캐시·관리 경로·소스맵을 검사합니다.
 정책별 OFF와 다른 정책 유지 여부도 실제 요청으로 검사합니다.
@@ -54,24 +56,30 @@ no-store와 정적 성공 응답의 구분, backend 보안 헤더 중복 제거�
 이 검사는 1 GiB 본문을 실제 전송한 부하 시험이나 Spring Boot의 multipart 파서 시험을
 뜻하지 않습니다. 5 MiB 정책을 다시 켜면 같은 크기의 요청이 거부되는지도 확인했습니다.
 
+별도의 로컬 Windows Chrome fixture 검증에서 이전 정책의 style 속성·style 태그·
+동적 style 차단과 .mjs MIME 오류를 먼저 재현했습니다. 수정 정책에서 실제 computed
+style과 동일 origin .mjs import가 정상 적용되고, 인라인 script·onclick·eval은 계속
+차단되는지 확인했습니다. 이 브라우저 검사는 고객사 앱/인증서/운영 서버 검증이 아닙니다.
+인라인 CSS 허용은 스타일 주입 제한을 완화하는 호환 선택이며 더 엄격한 CSS 정책에는
+앱의 nonce/hash 연동이 필요합니다. 고정 nonce는 제공하지 않습니다.
+
 Linux는 실제 symlink 접근 차단을 검사합니다. Windows 링크 검사는 OS 권한 검토가
 필요하다고 명시했는지 확인하는 것으로 고객사 NTFS 링크/ACL을 검증했다는 뜻이 아닙니다.
 
 | 증거 | 결과 |
 | --- | --- |
-| [빌드·실행·게이트·자동 발행](https://github.com/appdign/NginxForge/actions/runs/39373262622) | 최종 소스 첫 실행 전체 workflow success, 세 바이너리와 9개 OS/CPU 조합의 810개 검사 통과 |
-| [업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/39374252238) | 이미 발행한 r7의 중복 빌드·배포 생략 검증 |
-| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r7) | 다섯 자산 공개, draft=false, prerelease=false, Latest 확인 |
-| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r7/build-manifest.json) | 공통 소스·의존성·옵션·툴체인·설정/문서 해시·전체 실행 증거 포함 |
+| [빌드·실행·게이트·자동 발행](https://github.com/appdign/NginxForge/actions/runs/39412754812) | 최종 소스 첫 실행 전체 workflow success, 세 바이너리와 9개 OS/CPU 조합의 837개 검사 통과 |
+| [업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/39414063808) | 이미 발행한 r8의 중복 빌드·배포 생략 검증 |
+| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r8) | 다섯 자산 공개, draft=false, prerelease=false, Latest 확인 |
+| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r8/build-manifest.json) | 공통 소스·의존성·옵션·툴체인·설정/문서 해시·전체 실행 증거 포함 |
 | [보안 설정 안내](SECURITY-CONFIG.md) | 사이트별 ON/OFF, SPA/REST/WS, 파일 서버 용량 정책 및 KISA WEB-01~26 범위 |
 | [backend 설정 예시](backend/application-upload.yml.example) | 실제 Spring MVC/Tomcat 업로드 서비스에 별도 병합할 설정 |
 | [담당 범위와 코드 점검](SECURITY-OWNERSHIP.md) | NGINX·프레임워크·운영 설정과 프론트/Spring Boot 코드 작업 구분 |
 
-빌드 소스와 릴리즈 태그 commit은 `62d814559246e5d83d0ab9b5aadc59138d761753`입니다.
-배포 감지 경로를 보완하기 전의 r7 준비 실행은 발행 전에 취소했고, 위 최종 소스의
-실행에서 모든 필수 빌드·실행·게이트·발행을 통과했습니다. 플랫폼 검증을 생략하지
-않았습니다. 공개된 다섯 파일의 GitHub 자산 SHA-256/크기, SHA256SUMS.txt의 네 파일
-해시와 압축파일 안의 모든 설정·문서 해시를 다시 확인했습니다.
+빌드 소스와 릴리즈 태그 commit은 `631f2f7098b8baaa4d8a7b00a90ce171e1b597ea`입니다.
+위 소스의 첫 실행에서 모든 필수 빌드·실행·게이트·발행을 통과했습니다.
+플랫폼 검증을 생략하지 않았습니다. 공개된 다섯 파일의 GitHub 자산 SHA-256/크기,
+SHA256SUMS.txt의 네 파일 해시와 압축파일 안의 모든 설정·문서 해시를 다시 확인했습니다.
 
 세 패키지의 conf에는 기본 네 파일, examples/spa-api-websocket.conf.example,
 maps/spa-api-websocket.conf와 정책 38개, 총 44개 파일이 정확히 포함되어 있습니다.
@@ -81,11 +89,16 @@ OS별로 결정적으로 렌더링한 바이트와 대조했고 Linux 두 아키
 두 개·26개 항목 대응표·backend YAML도 포함되어 있습니다. 실제 인증서·개인키·비밀번호
 파일 및 테스트 fixture는 배포 압축파일에 포함되지 않습니다.
 
-r6와 NGINX 소스·의존성·핵심 패치·빌드 옵션은 같습니다. 기존 NginxForge 1.30.6에서도
+r7과 NGINX 소스·의존성·핵심 패치·빌드 옵션은 같습니다. 기존 NginxForge 1.30.6에서도
 새 설정을 실행할 수 있습니다. 인증서/root/Origin/CSP/backend와 업무 설정을 맞추고
 같은 서비스 prefix/계정으로 nginx -t 통과 후 reload해야 합니다. 고객사 Windows 경로
 적용본은 fixture 인증서/root를 사용한 문법 확인과 실제 운영 인증서/backend 검증을
 구분합니다. 운영 서버에 자동 적용한 것은 아닙니다.
+
+기존 r7 사이트에는 csp-spa.conf와 mime.types 두 파일만 반영하는 별도 수정 묶음을
+제공합니다. 기존에 추가한 CSP 출처나 MIME 매핑은 병합해 유지합니다. 같은 CSP 헤더를
+수정하며 별도 허용 헤더를 덧붙이지 않습니다. nginx -t 후 reload와 브라우저 새로 고침이
+필요합니다. NGINX 실행 파일이나 site.conf 전체 교체는 이 수정에 필요하지 않습니다.
 
 업로드 URL을 모르는 파일 서버 적용본은 사이트 전체의 요청 상한을 1 GiB로 선택합니다.
 **JSON에도 NGINX 상한은 1 GiB**이며 일반 JSON을 5 MiB로 제한했다는 뜻이 아닙니다.
@@ -108,6 +121,11 @@ ARM64를 포함한 모든 필수 빌드·실행·릴리즈 검증을 통과했�
 전체 검증을 통과해야만 발행합니다.
 
 ## 이전 릴리즈 기록
+
+r7은 [전체 810개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/39373262622)을
+통과했습니다. [r7 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r7)는
+1 GiB 파일 서버 선택 정책과 Spring MVC/Tomcat 용량 설정 예시를 처음 포함한 공개 기록입니다.
+빌드 소스는 `62d814559246e5d83d0ab9b5aadc59138d761753`입니다.
 
 r6는 [전체 783개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/39370470807)을
 첫 실행에서 통과했습니다. [r6 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r6)는
