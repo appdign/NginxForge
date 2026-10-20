@@ -89,7 +89,6 @@ def main():
     for name in ['logs', 'temp', 'html']:
         (stage / name).mkdir()
         (stage / name / '.keep').touch()
-    (stage / 'html/index.html').write_text('<!doctype html><title>Ready</title><p>Ready</p>\n')
     (stage / 'html/__nginxforge_error.html').write_text('<!doctype html><title>Request unavailable</title><p>The request could not be completed.</p>\n')
     for name in SECURITY_DOCS:
         destination = stage / packaged_policy_path(name)

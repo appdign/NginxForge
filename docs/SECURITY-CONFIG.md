@@ -1,315 +1,109 @@
-# KISA 2026 보안 설정과 도메인 샘플
+# 운영 설정: site.conf 한 파일에서 관리
 
-기준은 KISA의 2025-12-24 공개 「2026 주요정보통신기반시설 기술적 취약점 분석·평가 방법
-상세가이드」 웹 서비스 편입니다. 공식 표 p.272~273은 **WEB-01~WEB-26 총 26개**입니다.
-[공식 게시물](https://www.kisa.kr/2060204/form?postSeq=22&page=1)과
-[공식 PDF](https://www.kisa.kr/post/fileDownload?menuSeq=2060204&postSeq=22&attachSeq=1&lang_type=KO)를 참고하세요.
-원본 PDF SHA-256: `44fe393981b244147be6af7423d99dc15633c089fad0bcb296cbe2371dde812d`.
-이 배포는 KISA 인증 또는 고객사 점검 통과를 의미하지 않습니다. 적용 환경의 실제 설정,
-계정·파일 권한·인증서·업스트림 애플리케이션을 함께 점검해야 합니다.
+평소 수정하는 파일은 **conf/site.conf 하나**입니다. 가상호스트가 여러 개여도 같은
+파일에 사이트 구역을 추가합니다. API/WS/backend나 외부 허용 범위 때문에 다른 파일을
+찾아 수정하지 않습니다.
 
-## site.conf에서 정책별 ON/OFF
-
-정책은 **설정 목적별 파일 하나**로 나누고, 적용 목록은 한 `site.conf`에서 관리합니다.
-기본값은 모든 정책 ON입니다. 각 include 앞에 `#`을 붙이면 해당 도메인에서 OFF,
-제거하면 ON입니다. 프론트/API server 블록의 스위치를 각각 바꿀 수 있습니다.
-
-```nginx
-# ON
-include policies/server/csp.conf; # ON: CSP 콘텐츠 출처 제한
-
-# OFF: 실제 적용 줄을 아래처럼 바꾸며 두 줄을 동시에 남기지 않습니다.
-# include policies/server/csp.conf;
-```
-
-| 위치 | 역할 |
+| 파일 | 역할 |
 | --- | --- |
-| `conf/nginx.conf` | HTTP 공통 기반: 로그, MIME, CORS map, 요청 제한 zone, 헤더 상속 |
-| `conf/conf.d/site.conf.example` → `site.conf` | 도메인·인증서·root·고정 backend와 정책별 include 스위치 |
-| `conf/policies/server/*.conf` | server 정책. methods-static은 정적 location에서도 사용. wildcard 자동 로드 없음 |
-| `conf/policies/location/*.conf` | REST 메소드·WebSocket처럼 해당 proxy location에서 선택하는 정책 |
-| `conf/policies/http/tls.conf` | HTTP 문맥의 공유 TLS 정책. nginx.conf의 include로 ON/OFF |
-| `conf/policies/http/default-listeners.conf` | 기본 Host/SNI 거부 리스너. site.conf 최상단에서 ON/OFF |
+| conf/nginx.conf | worker·로그·MIME·공통 TLS·site.conf include. 도메인/backend 없음 |
+| conf/policy.conf | 고정 보안 헤더·정보 노출 방지·위험 파일/관리 경로 차단. 도메인/backend 없음 |
+| conf/site.conf | 모든 실제 도메인·인증서·root·CSP·외부 허용 목록·API·WS·backend·제한 값 |
+| conf/mime.types | 공통 MIME 데이터. js/mjs는 JavaScript, css는 text/css |
 
-NGINX include 경로는 **conf 디렉터리 기준**입니다. 정책 파일은 `conf.d` 바깥에 두어
-`conf.d/*.conf`에 의해 잘못된 문맥에서 자동으로 로드되지 않습니다.
-CORS map과 요청/연결 zone은 nginx.conf에 항상 정의하지만, 선언만으로 거부/제한하지는 않습니다.
-실제 적용은 해당 도메인의 `cors.conf`, `request-rate.conf`, `connection-limit.conf`가 담당합니다.
-해당 정책을 꺼도 변수/zone을 찾지 못하는 문법 오류가 나지 않도록 선언을 보존합니다.
+운영 conf에는 위 네 파일만 있습니다. 예제·이전 정책별 파일·backend YAML·코드 점검
+프롬프트는 운영 패키지와 분리하여 저장소/별도 참고 ZIP으로 제공합니다.
+공개 바이너리의 초기 site.conf는 고객사 값/인증서를 담지 않고 모든 요청을 거부합니다.
+실제 적용본의 site.conf를 설치해야 서비스를 제공합니다. 데모 사이트/8080 미리보기는 없습니다.
 
-### 정책 파일과 OFF 의미
+## site.conf에서 수정할 위치
 
-다음 파일은 `conf/policies/server/`에 있습니다. 두 프론트/API 블록에 같은 파일을
-include하면 값은 공유되고 적용 여부는 도메인별로 선택합니다. 서로 다른 값이 필요하면
-파일을 별도 이름으로 복사하고 해당 도메인의 include만 바꿉니다.
+1. **외부 웹사이트 허용 목록**: 파일 상단 site_external_origin map. 키는 대상 server_name과
+   허용할 Origin의 쌍입니다. 목록이 비어 있어도 현재 접속 사이트는 자동 허용됩니다.
+2. **사이트 구역**: BEGIN SITE~END SITE 사이의 server_name·인증서·root를 맞춥니다.
+   가상호스트를 추가할 때 이 구역만 복사하며 공통 map/zone/기본 listener는 복사하지 않습니다.
+3. **사이트별 선택**: site_cors_mode, site_ws_mode, site_allow_originless_ws,
+   site_cors_credentials, site_csp를 조정합니다.
+4. **업무 동작**: location /api/, /storagewiz/, /process_file/의 고정 proxy_pass,
+   허용 메소드, timeout, client_max_body_size, 쿠키와 오류 가림을 조정합니다.
+5. **자동 계산 구역**: 파일 맨 아래의 map들은 현재 접속 호스트/포트와 위 선택값을 계산합니다.
+   보통 수정하지 않습니다. API prefix를 변경할 때는 site_api_path 분류도 함께 맞춥니다.
 
-| 파일 | 기본 ON 동작 |
-| --- | --- |
-| `identity.conf` | Server/제품·버전 정보 헤더 숨김 |
-| `directory-listing.conf` | 디렉터리 목록 비활성화 |
-| `ssi.conf` | SSI 비활성화 |
-| `compression.conf` | 민감 응답의 gzip 압축 비활성화 |
-| `body-size.conf` | 일반 요청 본문 5 MiB 제한 |
-| `upload-body-size.conf` | 파일 서버 대안: 전체 요청 1 GiB. body-size와 같은 문맥에서 둘 중 하나만 선택 |
-| `timeouts.conf` | 클라이언트 시간·헤더 제한 |
-| `request-rate.conf` | IP당 10r/s·burst 20, 초과 429 |
-| `connection-limit.conf` | IP당 동시 연결 20, 초과 429 |
-| `generic-errors.conf` | 일반 오류 본문과 upstream 오류 가림 |
-| `symlinks.conf` | Linux 링크 접근 차단, Windows OS 권한 점검 안내 |
-| `nosniff.conf` | X-Content-Type-Options |
-| `frame-options.conf` | X-Frame-Options SAMEORIGIN |
-| `referrer-policy.conf` | strict-origin-when-cross-origin |
-| `csp.conf` | CSP 출처 제한 |
-| `permissions-policy.conf` | 카메라·마이크·위치 제한 |
-| `hsts.conf` | HTTPS 도메인의 1년 HSTS |
-| `methods-static.conf` | 프론트 GET/HEAD 허용 |
-| `methods-api.conf` | API GET/HEAD/POST/OPTIONS 허용 |
-| `secret-files.conf` | 숨김·설정·키·백업 파일 차단 |
-| `script-files.conf` | 스크립트·실행 파일 URL 차단 |
-| `uploads.conf` | 업로드 경로 직접 접근 차단 |
-| `management-paths.conf` | Actuator·Swagger·H2 공개 경로 차단 |
-| `sourcemaps.conf` | 소스맵 공개 차단 |
-| `admin-acl.conf` | 관리자/VPN CIDR 제한 |
-| `cors.conf` | 정확한 origin 검증·CORS 응답·preflight 처리 |
-| `private-cache.conf` | private API no-store |
-| `session-cookies.conf` | 지정 세션 쿠키 Secure/HttpOnly/SameSite |
-| `proxy-headers.conf` | 전달 헤더를 검증된 연결 정보로 덮어쓰기 |
-| `proxy-timeouts.conf` | backend 연결·응답 시간 제한 |
-| `https-redirect.conf` | HTTP에서 고정 server_name의 HTTPS로 308 이동 |
+파일 하나 안의 주석을 따라 수정합니다. 실제 적용본에는 토큰/미사용 가상호스트나 예제를
+섞지 않습니다. 소스의 [site template](https://github.com/appdign/NginxForge/blob/main/config/site-template.conf)은
+별도 참고/생성용이며 @@...@@ 토큰을 치환하지 않은 채 운영 설정으로 설치하지 않습니다.
 
-OFF는 **그 파일의 지시문을 적용하지 않는 것**입니다. NGINX 기본값이나 상위 설정,
-backend가 같은 정책을 발행하면 그 동작은 남을 수 있습니다. 예를 들어 autoindex/SSI/gzip은
-NGINX 기본값도 off라서 include를 껐다고 기능이 켜지지 않습니다. 이미 브라우저가 받은
-HSTS는 include를 꺼도 만료 전까지 남습니다. CSP의 frame-ancestors와 X-Frame-Options는
-각각 프레임 삽입을 제한하므로 한쪽만 꺼도 다른 쪽은 계속 적용됩니다.
+## API와 WebSocket의 기본값
 
-각 헤더 정책 파일에 backend 헤더 숨김과 edge 헤더 발행을 함께 넣었습니다.
-CSP/CORS/no-store 정책을 OFF하면 **backend 원본 헤더가 다시 통과할 수 있습니다**.
-애플리케이션에도 같은 설정이 있으면 함께 대조하세요. CORS OFF 시 OPTIONS도 backend에
-전달하며, HTTPS 이동 OFF 시에는 샘플의 명시적인 HTTP 404가 남습니다.
-관리자 ACL OFF 시 기본 API 프록시로 연결되므로 Spring Boot 인증·인가는 항상 유지합니다.
-오류 가림 OFF 시 backend 원본 오류 본문이 전달됩니다.
+기본은 동일 출처(프로토콜·호스트·포트가 같은 경우)입니다. 현재 접속한 허용 vhost의
+호스트/포트를 자동 반영하므로 policy.conf에 도메인을 적지 않습니다. 80/443의 명시적
+기본 포트와 생략 표기는 정규화하고 비표준 포트는 구분합니다. 알 수 없는 Host/SNI는 거부합니다.
 
-### 실제 환경에 맞춰 바꿀 값
+- **우리 화면 -> 외부 API/WSS/CDN**: 각 사이트의 site_csp에서 해당 src에 추가합니다.
+  connect-src의 현재 WSS 호스트/포트는 자동 생성됩니다. CSP를 두 헤더로 나누지 않습니다.
+- **외부 웹사이트 -> 우리 API/WS**: 상단 site_external_origin에 대상 vhost별로 등록합니다.
+  exact Origin 또는 protocol/host/port 전체를 고정한 하위 도메인 패턴을 사용합니다.
+  API CORS와 WebSocket Origin 검사는 이 목록을 공유하지만 공개 모드는 따로 선택합니다.
+- **API 공개**: 해당 사이트의 site_cors_mode를 public으로 설정하면 모든 HTTP(S) Origin에
+  Access-Control-Allow-Origin: *를 응답합니다. 이 모드에서는 credentials 헤더를 내보내지 않습니다.
+- **WS 공개**: site_ws_mode를 public으로 선택합니다. API 공개가 WS 공개를 자동으로 켜지 않으며
+  WS 공개도 API 공개를 켜지 않습니다. Origin 없는 native WS는 별도로 1을 선택해야 합니다.
+- **쿠키/세션 CORS**: restricted 목록에 일치한 실제 Origin만 응답합니다. *와
+  Access-Control-Allow-Credentials: true를 같이 보내지 않습니다. null Origin은 기본 거부합니다.
 
-- `site.conf`: 프론트/API 도메인, 인증서/개인키 경로, 프론트 root와
-  `upstream forge_spring`의 실제 고정 backend 주소를 바꿉니다. 기본은 127.0.0.1:9000입니다.
-  server_name은 literal 도메인으로 사용하며 HTTP 이동은 첫 configured name을 사용합니다.
-  샘플은 두 도메인이고, 같은 도메인의 /api/ 구조라면 기존 라우팅에 맞춰 조정합니다.
-- 인증서 경로는 conf 기준입니다. 예: `conf/certs/example.test/fullchain.pem`.
-  프론트 root는 prefix 기준 `sites/example.test/public`입니다.
-- `nginx.conf`의 map: 실제 CORS origin을 scheme/host/port까지 정확히 지정합니다.
-  사용하지 않는 example/portal origin은 지웁니다. wildcard를 허용하지 않습니다.
-- `policies/server/csp.conf`: 실제 API/자산/SSO 출처만 허용합니다. nonce/hash 렌더링은
-  앱/빌드와 연동하며 고정 nonce를 쓰지 않습니다.
-- `policies/server/admin-acl.conf`: 실제 관리자/VPN CIDR과 관리자 경로를 지정합니다.
-  기본은 loopback만 허용하고 /admin 및 /api/admin을 함께 제한합니다.
-- `policies/server/session-cookies.conf`: 실제 쿠키 이름과 인증/SSO에 맞는 SameSite를 정합니다.
-  XSRF-TOKEN은 JS가 읽어야 하므로 HttpOnly로 바꾸지 않습니다.
-- PUT/PATCH/DELETE가 필요하면 `methods-api.conf`, `cors.conf`의 Allow-Methods와
-  nginx.conf의 preflight map을 함께 맞춥니다.
-- 각 제한 정책의 본문 크기, rate/연결 수, timeout은 실제 업무 트래픽에 맞춥니다.
-  제한을 끄는 것과 수치를 조정하는 것은 별개입니다.
+와일드카드 등록 시 다른 vhost의 허용 목록에 번지지 않도록 대상 server_name을 함께
+매칭합니다. 상위 도메인, 악성 suffix, 다른 scheme/port를 자동 허용하지 않습니다.
+Origin을 무조건 응답에 복사하지 않습니다. CORS/CSP/Origin은 사용자 인증·객체별 인가·
+CSRF를 대신하지 않으며 비브라우저의 직접 호출은 Spring Boot 인증으로 통제합니다.
+Origin 없는 일반 HTTP API는 허용하며 backend 인증을 유지합니다.
 
-### 활성화와 기존 서버 반영
+## CSS와 JavaScript
 
-1. 서버 OS에 맞는 릴리즈의 conf 전체와 `html/__nginxforge_error.html`을 준비합니다.
-   정책 파일을 빠뜨리지 않습니다. Linux AMD64/ARM64 정책은 같고 Windows 링크 파일은
-   지원하지 않는 disable_symlinks 지시문 없이 OS 검토 필요성을 명시합니다.
-2. 운영 값·인증서·정적 파일·backend를 준비하고 각 include의 ON/OFF를 선택합니다.
-   실제 인증서·개인키·기본 비밀번호는 배포하지 않습니다.
-3. `conf/conf.d/site.conf.example`을 `site.conf`로 한 번 이름을 바꿉니다.
-   인증서 없는 첫 시작은 기존처럼 loopback 127.0.0.1:8080이며 사이트는 비활성 상태입니다.
-4. 기존 라우팅·서비스 계정·실행 인수를 보존하고, 예전 설정이나 같은
-   listen/server_name/default_server를 중복으로 남기지 않습니다.
-5. 기존 서비스와 같은 prefix/계정으로 `nginx -p <prefix>/ -c conf/nginx.conf -t`를
-   통과시킨 뒤 서비스의 reload 절차로 적용합니다. 로그인·API·업로드 등 업무 동작을 확인합니다.
+site_csp는 인라인 CSS를 허용하며 인라인 script/onclick/eval을 차단합니다. 스타일 주입
+제한을 완화하는 호환 선택입니다. 더 엄격한 스타일 정책은 앱의 nonce/hash 연동이 필요하며
+정적 nonce는 사용하지 않습니다. 같은 사이트의 js/mjs 모듈은 정상 MIME으로 응답합니다.
+MIME 오류가 text/html이면 파일 누락/잘못된 URL로 SPA fallback이 응답한 것인지 확인합니다.
+외부 CDN은 해당 사이트의 CSP src에 필요한 출처만 추가합니다.
 
-헤더 정책의 독립적 선택과 오류 location 상속에는 `add_header_inherit merge`를 사용하므로
-**NGINX 1.29.3 이상**이 필요합니다. 기존 NginxForge 1.30.6 r2/r3/r4 바이너리도 사용할 수 있습니다.
-이번 변경은 NGINX C 소스·의존성·핵심 패치를 바꾸지 않으며 운영 서버에 자동 적용하지 않습니다.
-TLS 정책은 핸드셰이크와 기본 리스너에 공유되어 nginx.conf의 HTTP 문맥에서 제어합니다.
-하위 location에서 add_header/proxy_set_header를 다시 정의하면 중복/상속이 달라질 수 있으므로
-추가 정책을 대조하고 기존 전달 헤더 전체를 유지합니다.
+## 사이트별 요청/연결/업로드 설정
 
-### 적용 범위와 검증
+site.conf에서 client_max_body_size를 선택합니다. 파일 서버 기본은 **요청 전체 1 GiB**이며
+파일·폼·multipart 형식을 모두 포함합니다. API 요청 5 MiB가 필요한 사이트는 5m로 선택합니다.
+업로드 경로를 모르는 edoc 적용본은 사이트 전체 1 GiB이므로 JSON에도 같은 상한입니다.
+다운로드 파일 크기 제한은 아닙니다.
 
-모든 정책 ON의 기존 보안 동작을 검사하고, **32개 정책을 하나씩 OFF한 설정과 모두 OFF한
-설정의 문법 검사**, CSP/보안 헤더/CORS/캐시/쿠키/관리자 ACL/오류 가림/정보 헤더/파일 제한/
-요청 빈도의 실제 OFF 동작과 다른 정책의 유지 여부를 실행 검사합니다.
-이 검사는 고객사 실제 브라우저·SSO 호환성이나 Spring Boot 코드 점검 완료를 의미하지 않습니다.
-끄기로 선택한 보안 통제가 여전히 충족된다고 판정하지 않습니다.
+파일당 50 MiB와 일반 폼 파라미터 5 MiB는 실제 Spring MVC/Servlet + Tomcat에 별도로
+적용합니다. [backend YAML 참고](https://github.com/appdign/NginxForge/blob/main/docs/backend/application-upload.yml.example)는
+운영 conf에 섞지 않습니다. NGINX가 자동 적용하지 않으며 여기의 native 검증은 실제
+Spring 앱의 파일/폼 제한을 검증한 것이 아닙니다. Tomcat 폼 제한은 JSON/WS 메시지나
+분할 업로드의 논리적 파일 합계를 제한하지 않습니다.
 
-CORS/IP 제한은 앱의 인증·객체별 인가·CSRF를 대체하지 않고, CSP는 XSS 코드를 수정하지 않습니다.
-요청 크기/속도 제한은 다운로드 총량·계정별 저장 용량이 아닙니다. 응답 오류 가림은
-API 오류 스키마에 영향을 줄 수 있으며 앱의 200 응답이나 로그의 비밀정보를 제거하지 않습니다.
-관리 포트/backend 직접 접근, 신뢰 LB의 real-IP CIDR, 원격 upstream의 TLS·CA·hostname 검증과
-OS 계정·파일 권한은 별도로 적용합니다. IPv6 리스너와 방화벽도 같은 범위로 검토합니다.
+IP 빈도는 기본 10r/s·burst 20이고 일일 횟수 제한이 아닙니다. bucket은 vhost별로 분리합니다.
+동시 연결 기본 20, WS idle 3600초 등은 사이트별로 조정합니다. NAT/장기 WS와 임시 파일
+공간을 고려합니다. API 오류 JSON을 유지하려면 해당 사이트 proxy_intercept_errors를 off로
+선택합니다. 로그/오류의 비밀정보 제거와 backend 인증은 계속 앱에서 담당합니다.
 
-[보안 담당 범위](SECURITY-OWNERSHIP.md), [프론트 코드 전용 프롬프트](prompts/FRONTEND-CODE-REVIEW.md),
-[Spring Boot 코드 전용 프롬프트](prompts/SPRING-BOOT-CODE-REVIEW.md)를 함께 제공합니다.
-앱/OS/인증 서버 설정과 코드로 고쳐야 하는 결함은 해당 담당 범위에 남깁니다.
+## 설치와 변경
 
-## 단일 도메인 SPA + REST + WebSocket
+기존 설정을 백업한 뒤 새 구조의 conf 네 파일과 html/__nginxforge_error.html을 함께 설치합니다.
+r8의 conf.d/*.conf/policies include 구조와 병행 활성화하지 않습니다. 기존 실행 파일
+NginxForge 1.30.6을 사용할 수 있으며 운영 서버에 자동 적용하지 않습니다.
+같은 prefix/계정/-c 인수로 nginx -t 통과 후 기존 서비스 절차로 reload합니다.
+Windows 일반 예는 ./nginx.exe -t 후 성공 시 ./nginx.exe -s reload입니다.
 
-`conf/examples/spa-api-websocket.conf.example`을 `conf/conf.d/site.conf`로 복사하면
-프론트와 API를 한 HTTPS 도메인에서 제공합니다. 기존 두 도메인 샘플과 동시에 같은
-listen/server_name/default_server를 중복 활성화하지 않습니다. 새 샘플도 개별 include 앞에
-#을 붙여 정책을 끌 수 있습니다.
+실제 인증서/키/프론트/backend는 운영 리소스이며 묶음에 포함하지 않습니다. 가상호스트를
+추가한 뒤 로그인·SSO·API·업로드·WebSocket과 오류 응답을 실제 환경에서 확인합니다.
+Linux는 native disable_symlinks를 적용하고 Windows는 NTFS ACL/재분석 지점 통제가 별도입니다.
 
-| 경로 | 동작 |
-| --- | --- |
-| /api/... | 127.0.0.1:9090, URI prefix/query 유지 |
-| /storagewiz/... | 127.0.0.1:9080, URI prefix/query 유지 |
-| /process_file/... | 127.0.0.1:9090, 일반 HTTP와 WebSocket upgrade |
-| 그 외 화면 경로 | 정적 파일 우선, 없으면 /index.html SPA fallback |
+검증은 실제 바이너리로 두 vhost의 root/backend/CSP/외부 목록/공개 모드/용량 제한 격리,
+정확한 CORS preflight/Origin 경계, TLS, CSS/mjs, URI prefix/query, 전달 헤더, 쿠키,
+오류/캐시, WebSocket handshake와 frame을 확인합니다. 사이트별 선택을 바꾸어도 공통
+policy.conf의 바이트가 유지되는지 확인합니다. 전체 9개 필수 OS/CPU가 성공해야 발행합니다.
 
-운영 도메인·인증서·root·포트를 사이트 파일에서 맞추고,
-`conf/maps/spa-api-websocket.conf`의 HTTPS origin과
-`conf/policies/server/csp-spa.conf`의 WSS origin도 같은 도메인으로 바꿉니다.
-Windows에서는 D:/... 절대 경로를 사용할 수 있습니다.
-실제 인증서/개인키·운영 파일·backend는 배포 묶음에 포함하지 않습니다.
-
-- map은 HTTP 문맥에서만 유효합니다. 사이트 파일 최상단의 `include maps/spa-api-websocket.conf;`가
-  server 밖에 있으므로 주어진 Upgrade/Connection map을 따로 server 안에 복사하지 않습니다.
-- `proxy_pass` 끝에 /를 넣지 않아 /api, /storagewiz, /process_file prefix와 query를 유지합니다.
-  슬래시 없는 정확한 prefix는 308로 슬래시를 붙여 SPA HTML 응답으로 빠지지 않게 합니다.
-- `methods-static.conf`는 정적 location과 /index.html에만 둡니다. server 전체에 넣으면
-  POST/PUT/PATCH/DELETE가 차단됩니다. API는 `policies/location/methods-rest.conf`로
-  GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS를 허용합니다.
-- `policies/location/websocket.conf`에 Upgrade/Connection과 Host·실제 IP·전달 헤더 전체를
-  명시합니다. 하위 proxy_set_header는 상위 목록을 상속하지 않으므로 WS 헤더 두 줄만
-  추가하고 나머지를 상속받는다고 가정하지 않습니다.
-- WebSocket idle read/send timeout은 3600초입니다. 총 연결 수명을 보장하는 값이 아니며
-  backend ping, 세션 만료, 인증·인가와 재접속 처리는 앱에서 유지합니다.
-- `policies/location/websocket-origin.conf`는 정확한 HTTPS origin의 upgrade만 허용합니다.
-  잘못된 origin, null, Origin 없는 WebSocket은 기본 거부합니다. native 클라이언트가
-  필요하면 Origin/토큰 인증 요구사항을 확인하고 map을 명시적으로 조정합니다.
-  Origin 없는 일반 HTTP는 허용합니다. 이 검사는 로그인·객체별 인가를 대체하지 않습니다.
-- CSP connect-src에는 self와 실제 wss://도메인을 지정합니다. 실제 JS/CSS/이미지·SSO 출처를
-  확인하고 필요한 항목만 추가합니다. 같은 origin SPA/API라 NGINX CORS 응답은 추가하지 않습니다.
-- SPA CSP는 `style-src 'self' 'unsafe-inline'`로 style 속성·style 태그·CSS-in-JS의 인라인
-  CSS를 허용합니다. `script-src 'self'`는 같은 origin의 JS 파일만 허용하며 인라인 script,
-  onclick 같은 HTML 이벤트 핸들러와 eval을 허용하지 않습니다. 기존의 default-src만 있는
-  정책은 style-src로 fallback되어 인라인 CSS를 차단하므로 기존 csp-spa.conf를 교체합니다.
-  CSS 인라인 허용은 스타일 주입 제한을 완화하는 호환 설정입니다. 더 엄격하게 운영하려면
-  앱의 nonce/hash 적용을 함께 설계합니다. 정적 conf에 고정 nonce를 넣지 않습니다.
-- `mime.types`에 `.js`와 `.mjs`를 JavaScript MIME으로 등록합니다. `.mjs`를 쓰는 사이트는
-  해당 파일도 함께 교체하고 nginx.conf의 `include mime.types;`를 유지합니다. nosniff는
-  유지합니다. 외부 CDN은 자동 허용하지 않으며 필요한 출처만 CSP에 별도로 등록합니다.
-- `private-cache-spa.conf`는 API 경로와 일반 오류 응답에 no-store를 적용하고 정적 정상
-  응답에는 Cache-Control을 추가하지 않습니다. normalized URI를 map으로 검사하므로
-  인코딩된 /api prefix도 검사하며, 내부 오류 페이지로 바뀐 API 500에도 no-store가 남습니다.
-  헤더 정책과 같은 server 수준에서 backend cache/CSP 등의 소유권을 유지합니다.
-- proxy location에 ^~를 붙이면 정규식 보안 location을 건너뛸 수 있으므로 샘플에는 넣지 않습니다.
-  비밀 파일·스크립트·관리 경로·소스맵은 SPA fallback이나 backend보다 먼저 차단합니다.
-- 기존 `admin-acl.conf`는 두 도메인 샘플의 forge_spring upstream용입니다. 이 샘플에
-  그대로 복사하지 않습니다. 실제 관리자 URI·VPN CIDR·목적지에 맞는 제한을 별도로 구성하고
-  Spring Boot 인증/인가를 유지합니다.
-
-기본 요청 본문 5 MiB, IP당 10r/s·burst 20, 연결 20은 이 사이트에도 적용됩니다.
-파일 업로드 크기와 NAT 뒤 사용자 수/장기 WebSocket 수에 맞게 해당 정책을 조정합니다.
-generic-errors는 backend 오류 본문을 HTML로 가릴 수 있으므로 업무 JSON 오류 처리를 확인합니다.
-
-실행 검사는 SPA history fallback, 정적 메소드 제한과 REST POST/PUT/PATCH/DELETE,
-서로 다른 두 backend/경로/query, 전달 헤더와 보안 헤더 상속, API/정적 캐시 구분,
-보안 정규식 우선순위, 실제 101 handshake와 마스킹된 WebSocket 텍스트 프레임 왕복,
-잘못된 origin 거부, 정책 OFF, index.html 부재 시 404를 확인합니다.
-정적 CSS/.mjs의 실제 바이트·MIME과 CSP의 CSS/JS 출처 구분도 검사합니다.
-운영 인증서나 고객사 실제 backend/브라우저까지 검증한 의미는 아닙니다.
-
-`Applying inline style violates ... default-src 'self'` 오류는 위 style-src 수정 대상입니다.
-기존 **하나의** CSP 헤더를 수정해야 하며 두 번째 허용 헤더만 덧붙이면 기존 차단 정책이
-교차 적용될 수 있습니다. 같은 prefix/계정으로 nginx -t 통과 후 reload하고 브라우저를
-새로 고칩니다. MIME 오류가 text/html이면 파일 URL/배포 누락으로 SPA fallback이 응답한
-것인지 별도로 확인합니다.
-[MDN style-src](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src)를 참고하세요.
-
-[NGINX WebSocket](https://nginx.org/en/docs/http/websocket.html)과
-[proxy_set_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header)를 참고하세요.
-
-## 파일 서버 용량: 파일 50 MiB / 요청 전체 1 GiB / 일반 폼 5 MiB
-
-NGINX의 client_max_body_size는 파일을 제외하거나 파일별 크기를 구분하지 않습니다.
-파일 서버 사이트에는 아래처럼 **둘 중 하나만** 선택합니다.
-
-```nginx
-# include policies/server/body-size.conf; # 일반 API 대안: 전체 5 MiB
-include policies/server/upload-body-size.conf; # 파일 서버: 전체 1 GiB
-```
-
-업로드 경로가 확정되지 않은 파일 서버는 server 수준에서 1 GiB를 선택합니다.
-이때 그 사이트의 **JSON 등 일반 요청에도 NGINX의 1 GiB 상한**이 적용됩니다.
-일반 API/JSON의 5 MiB 제한을 동시에 유지하려면 나중에 실제 업로드 location에만
-upload-body-size.conf를 넣고 상위 body-size.conf를 유지합니다. Content-Type 헤더만으로
-파일 업로드 여부를 신뢰해 다른 요청을 예외 처리하지 않습니다.
-
-파일별 50 MiB와 일반 폼 필드 5 MiB는 실제 업로드를 처리하는 **Spring MVC/Servlet +
-Tomcat**에서 적용해야 합니다. [backend/application-upload.yml.example](backend/application-upload.yml.example)을
-해당 backend의 기존 application 설정에 병합합니다. NGINX가 이 YAML을 자동 적용하지 않으며
-Jetty/Netty/WebFlux나 다른 제품에 그대로 적용되는 설정은 아닙니다.
-
-```yaml
-spring:
-  servlet:
-    multipart:
-      max-file-size: 50MB
-      max-request-size: 1GB
-server:
-  tomcat:
-    max-http-form-post-size: 5MB
-```
-
-| 제한 | 범위 |
-| --- | --- |
-| NGINX 1g | 전체 HTTP 요청 본문 |
-| multipart.max-file-size 50MB | multipart의 파일 하나 |
-| multipart.max-request-size 1GB | 파일·일반 필드·multipart framing을 포함한 요청 전체 |
-| Tomcat max-http-form-post-size 5MB | Tomcat이 파라미터로 파싱하는 일반 폼 데이터 합계. 업로드 파일 제외 |
-
-여기서 50MB/1GB는 Spring DataSize 기준 50 MiB/1 GiB이며 NGINX m/g와 같은 이진 단위입니다.
-1 GiB는 **파일 크기의 합계만이 아니라 폼/전송 형식도 포함**합니다.
-파일 합계만 정확히 1 GiB까지 허용하려면 별도의 합계 검증과 전체 요청 여유분 설계가 필요합니다.
-Tomcat의 폼 제한은 JSON 본문이나 WebSocket 메시지를 제한하지 않으며,
-각 의미 필드/파일 형식·인증·인가·업무 할당량 검증은 애플리케이션 담당입니다.
-기존 계정·포트·DB·인증 설정을 덮어쓰지 말고 실제 업로드 서비스에 위 속성만 병합합니다.
-큰 업로드를 수용할 NGINX/Spring의 임시 저장 공간도 준비합니다.
-
-기본 SPA 샘플은 5 MiB를 유지하고 1 GiB 대안 줄을 주석으로 제공합니다.
-고객사 파일 서버 적용본에서는 5 MiB 줄을 끄고 1 GiB를 켭니다.
-실행 검사는 배포된 옵션을 선택해 5 MiB보다 큰 실제 multipart가 backend에 도달하고,
-1 GiB 초과 Content-Length는 413으로 거부하며, 옵션을 되돌리면 다시 5 MiB가 적용되는지 확인합니다.
-**Spring Boot 실제 앱의 파일당 50 MiB·폼 5 MiB 동작은 이 NGINX 테스트가 검증한 것이 아닙니다.**
-backend 설정 적용/재시작 뒤 실제 앱에서 각각 초과 요청을 거부하는지 확인해야 합니다.
-
-[NGINX 요청 크기](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size),
-[Spring Boot 속성](https://docs.spring.io/spring-boot/appendix/application-properties/index.html),
-[Tomcat maxPostSize](https://tomcat.apache.org/tomcat-10.1-doc/config/http.html#Common_Attributes)를 참고하세요.
-
-## 운영체제별 권한과 링크
-
-Linux 패키지는 `conf/policies/server/symlinks.conf`에 `disable_symlinks on;`을 넣고
-site.conf의 include로 선택합니다. 링크를 사용하는
-기존 배포 구조는 영향을 검토하세요. 운영 전용 비특권 계정을 사용하고 실제 서비스가 필요로 하는
-최소 권한만 부여합니다. 예시 정책은 개인키/비밀번호 파일 600, 로그 파일 640, 로그 디렉터리
-750입니다. master/worker의 읽기·쓰기 요구사항을 확인하여 소유자와 그룹을 정합니다.
-root로 설치한 뒤 worker에 설정·실행 파일 쓰기 권한을 주지 않습니다. umask 027도 검토합니다.
-
-Windows NGINX에는 `disable_symlinks` 지원이 없으므로 해당 지시문을 넣지 않습니다.
-이를 플러그인으로 충족했다고 표시하지 않습니다. NTFS junction/symlink/reparse point와
-바로가기를 점검하고 웹 루트에 링크 생성/파일 쓰기 권한을 제한해야 합니다.
-
-```powershell
-# 읽기 전용 확인 예시. 실제 prefix와 운영 계정에 맞게 실행합니다.
-Get-Item -LiteralPath C:\nginxforge\sites\example.test\public | Select-Object FullName,Attributes,LinkType,Target
-Get-ChildItem -LiteralPath C:\nginxforge\sites\example.test\public -Force -Recurse -Attributes ReparsePoint
-icacls C:\nginxforge\conf
-icacls C:\nginxforge\logs
-icacls C:\nginxforge\conf\certs\example.test\privkey.pem
-```
-
-서비스 실행 계정의 최소 권한, Administrators/SYSTEM 권한, Everyone/Users/Authenticated Users의
-불필요한 권한 및 상속 ACL을 검토합니다. 이 배포는 고객사 ACL이나 서비스 계정을 자동 변경하지 않습니다.
+근거: [NGINX core](https://nginx.org/en/docs/http/ngx_http_core_module.html),
+[proxy](https://nginx.org/en/docs/http/ngx_http_proxy_module.html),
+[CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS),
+[CSP connect-src](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/connect-src).
 
 ## 항목별 적용 범위
 
@@ -326,7 +120,7 @@ icacls C:\nginxforge\conf\certs\example.test\privkey.pem
 | WEB-05 | CGI/ISAPI | CGI 실행 경로 미설정, 스크립트 요청 차단 | 별도 FastCGI/앱 실행 매핑 |
 | WEB-06 | 상위 경로 | 독립 document root, 경로 이탈 요청 검사 | alias/rewrite 및 앱 경로 정규화 |
 | WEB-07 | 잔여 파일 | dotfile·백업·설정 파일 차단 | 실제 불필요 파일 삭제·배포 정책 |
-| WEB-08 | 전송 크기 | client_max_body_size 5m, 413 동작 검사 | 다운로드 크기/총량은 앱·저장소 |
+| WEB-08 | 전송 크기 | site.conf의 1g/5m 선택, 413 동작 검사 | 다운로드 크기/총량은 앱·저장소 |
 | WEB-09 | 프로세스 권한 | Linux 비특권 worker 기본값, 운영 계정 지침 | Windows 서비스 계정·OS 권한 |
 | WEB-10 | 프록시 | 고정 upstream, CONNECT 금지, 전달 헤더 재작성 | 불필요한 프록시/동적 목적지 설정 제거 |
 | WEB-11 | 서비스 루트 | 사이트 public 디렉터리 분리 예시 | 실제 경로·소유자·웹 루트 밖 비밀 |
@@ -339,7 +133,7 @@ icacls C:\nginxforge\conf\certs\example.test\privkey.pem
 | WEB-18 | WebDAV | DAV 모듈 미포함, 불필요 메소드 차단 | backend의 DAV endpoint |
 | WEB-19 | SSI | ssi off, SSI 확장자 차단 | 다른 vhost의 SSI override |
 | WEB-20 | TLS | HTTPS 예시, TLS 1.2/1.3와 cipher 설정 | 실제 인증서·갱신·신뢰·도메인 |
-| WEB-21 | HTTPS 이동 | 고정 canonical 도메인의 308 이동 예시 | 실제 도메인 적용·HTTPS 연결 |
+| WEB-21 | HTTPS 이동 | 허용된 현재 Host의 308 이동 설정 | 실제 도메인 적용·HTTPS 연결 |
 | WEB-22 | 오류 정보 | 일반 오류 페이지와 기존 core 3줄 패치 | 앱/API 오류 스키마·민감 정보 |
 | WEB-23 | LDAP | LDAP 인증 모듈/기본 연결 미제공 | 가이드는 Tomcat 대상, LDAP 인증 backend |
 | WEB-24 | 업로드 분리 | 직접 uploads 경로 차단·별도 저장소 지침 | 앱 저장 경로, 내용 검증, 실행 금지·ACL |

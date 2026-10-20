@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from common import PLATFORM_POLICY_SOURCE, canonical_digest, find_release, github, load, packaged_policy_path, render_platform_policy, release_inputs, sha256, write, asset_name, verify_plan
+from common import PLATFORM_POLICY_SOURCE, canonical_digest, find_release, github, load, packaged_policy_path, render_platform_policy, release_inputs, site_templates, sha256, write, asset_name, verify_plan
 
 def module(name):
     spec = importlib.util.spec_from_file_location(name.replace('-', '_'), str(ROOT / 'scripts' / (name + '.py')))
@@ -39,6 +39,7 @@ def plan_fixture():
                 dependencies=load(ROOT / 'config/dependencies.lock.json'),
                 build_config=load(ROOT / 'config/build-config.yml'),
                 release_inputs=release_inputs(),
+                site_templates=site_templates(),
                 patches={p.relative_to(ROOT).as_posix(): sha256(p) for p in (ROOT/'patches').glob('*.patch')})
     plan['digest'] = canonical_digest(plan)
     return plan
@@ -98,6 +99,12 @@ class UpstreamSafety(unittest.TestCase):
     def test_runtime_policy_drift_is_rejected(self):
         plan=plan_fixture()
         plan['release_inputs']['config/runtime/nginx.conf']='bad'
+        plan.pop('digest');plan['digest']=canonical_digest(plan)
+        with self.assertRaises(ValueError): verify_plan(plan)
+
+    def test_site_template_drift_is_rejected(self):
+        plan=plan_fixture()
+        plan['site_templates']['config/site-template.conf']='bad'
         plan.pop('digest');plan['digest']=canonical_digest(plan)
         with self.assertRaises(ValueError): verify_plan(plan)
 

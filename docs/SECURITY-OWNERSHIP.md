@@ -6,11 +6,12 @@
 
 | 담당 | 항목 | 구현/설정 위치 |
 | --- | --- | --- |
-| NGINX 공통 기반 | 로그·MIME·CORS map·제한 zone·헤더 상속·공유 TLS | `conf/nginx.conf`, `conf/policies/http/tls.conf` |
-| NGINX 정책 스위치 | 정보/보안 헤더·CSP·CORS·쿠키·제한·관리 경로 등 목적별 정책 파일, 기본 ON | `conf/conf.d/site.conf.example` → `site.conf`의 개별 include, `conf/policies/` |
-| 프론트 코드 | 안전한 출력/HTML 처리, URL/메시지 검증, 인증정보·계정 전환 상태 처리, CSRF 프로토콜 연동 | [프론트 코드 프롬프트](prompts/FRONTEND-CODE-REVIEW.md) |
-| Spring Boot 코드 | 데이터별 인가, DTO/쿼리/파일/외부 URL 처리, 업무 할당량·일회성 토큰·오류/감사 로직 | [백엔드 코드 프롬프트](prompts/SPRING-BOOT-CODE-REVIEW.md) |
-| Spring/인증 서버 설정 | 인증 필터 체인, 표준 JWT 검증, 세션 TTL/폐기 정책, 비밀번호 해시 정책, Actuator 노출, multipart 파일 50 MiB/요청 1 GiB·Tomcat 폼 5 MiB | 앱 프레임워크/IdP 구성. [업로드 설정 예시](backend/application-upload.yml.example). Java 설정도 포함 |
+| NGINX 공통 기반 | 로그·MIME·공유 TLS·헤더 상속 | conf/nginx.conf. 도메인/backend 없음 |
+| NGINX 공통 보안 | 고정 보안 헤더·정보 노출 방지·위험 파일/관리 경로 차단 | conf/policy.conf. 도메인/backend 없음 |
+| 사이트 정책 | 도메인·인증서·root·CSP·CORS/WS 출처·proxy_pass·쿠키·오류·제한·timeout | conf/site.conf 한 파일. vhost별 독립 선택 |
+| 프론트 코드 | 안전한 출력/HTML 처리, URL/메시지 검증, 인증정보·계정 전환 상태 처리, CSRF 프로토콜 연동 | [프론트 코드 프롬프트](https://github.com/appdign/NginxForge/blob/main/docs/prompts/FRONTEND-CODE-REVIEW.md) |
+| Spring Boot 코드 | 데이터별 인가, DTO/쿼리/파일/외부 URL 처리, 업무 할당량·일회성 토큰·오류/감사 로직 | [백엔드 코드 프롬프트](https://github.com/appdign/NginxForge/blob/main/docs/prompts/SPRING-BOOT-CODE-REVIEW.md) |
+| Spring/인증 서버 설정 | 인증 필터 체인, 표준 JWT 검증, 세션 TTL/폐기 정책, 비밀번호 해시 정책, Actuator 노출, multipart 파일 50 MiB/요청 1 GiB·Tomcat 폼 5 MiB | 앱 프레임워크/IdP 구성. [업로드 설정 예시](https://github.com/appdign/NginxForge/blob/main/docs/backend/application-upload.yml.example). Java 설정도 포함 |
 | 운영 설정 | OS/DB 계정·ACL, Windows 링크, 방화벽·backend 직접 접근, 비밀값 주입·인증서·로그 회전·패치 | 배포/운영 담당 |
 
 코드와 설정은 파일 확장자로 구분하지 않습니다. 예를 들어 `SecurityFilterChain`을
@@ -24,7 +25,7 @@
   실제로 필요하면 그 연동 코드만 프론트/SSR 작업으로 남깁니다.
 - `proxy_cookie_flags`는 backend가 **이미 Set-Cookie로 발급한** 지정 쿠키의 응답 플래그를
   바꿉니다. JS localStorage의 토큰을 HttpOnly 쿠키로 옮기거나 세션을 발급/폐기하지 않습니다.
-- 요청 본문 5 MiB/IP 빈도 제한은 파일 내용·해제 후 크기·계정별 저장 용량·다운로드 총량을
+- 요청 본문 크기/IP 빈도 제한은 파일 내용·해제 후 크기·계정별 저장 용량·다운로드 총량을
   검사하지 않습니다. IP 제한만으로 계정별 로그인 남용 제어가 완료되지 않습니다.
 - 오류 페이지 가림은 API 오류 형식에 영향을 줄 수 있고, 200 응답이나 앱 로그에 이미 섞인
   비밀정보를 안전하게 제거하지 않습니다.
@@ -36,9 +37,10 @@ NGINX를 반드시 거치는 트래픽 경계를 먼저 확정합니다. 별도 
 
 ## 배포와 판정
 
-정책별 파일과 site.conf의 include 스위치로 제공합니다. 기본값은 모두 ON이며 include 앞에
-#을 붙여 도메인별로 OFF할 수 있습니다. 실제 domain/origin/쿠키 이름/SSO/관리 경로를 맞추고
-사이트 파일 한 개를 활성화합니다. OFF한 통제는 적용 완료로 판정하지 않습니다.
+운영 설정은 nginx.conf·policy.conf·site.conf·mime.types 네 파일로 제공합니다.
+모든 사이트별 선택값은 site.conf 안에서 조정하고 policy.conf는 수정하지 않습니다.
+예제·backend YAML·코드 프롬프트는 별도 참고 자료로 분리합니다. 공개 초기 설정은
+요청을 거부하므로 실제 site.conf를 설치합니다. 완화/해제한 통제를 적용 완료로 판정하지 않습니다.
 설치 절차와 헤더 상속 주의사항은 [보안 설정 안내](SECURITY-CONFIG.md)에 있습니다.
 프론트/백엔드 코드 수정, 프레임워크 설정, 운영 설정과 실제 NGINX 활성화 상태를
 각각 기록합니다. 이 분류는 KISA 26개 항목을 계층별 26개씩 나누거나 자동 합격시키는 기준이 아닙니다.

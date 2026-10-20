@@ -1,5 +1,7 @@
 # 완료 기준과 실제 검증 상태
 
+r9의 site.conf 단일 관리·공통 policy.conf 통합은 검증 중입니다. 아래는 기존 r8 공개 기록입니다.
+
 2026-10-20 검증 결과: **NGINX 1.30.6 / NginxForge r8 정식 발행 및 Latest 지정 완료**.
 기존 SPA CSP의 default-src fallback이 인라인 CSS를 차단하던 문제를 수정했습니다.
 style-src는 동일 origin과 인라인 CSS를 허용하고 script-src는 동일 origin만 허용합니다.

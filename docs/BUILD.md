@@ -45,30 +45,25 @@ OpenSSL의 외부 모듈/DSO 로딩은 비활성화합니다.
 
 ## 보안 프로필과 실행 검사
 
-`config/runtime`의 nginx.conf·사이트 스위치 목록·38개 정책 파일·SPA/WS map, 보안 운영 문서와 26개 항목
-대응표를 공통 build plan에서 SHA-256으로 고정합니다. 텍스트는 LF로 통일합니다.
-symlinks.conf의 단일 OS marker만 Linux native 차단과 Windows OS ACL 요구사항으로
-렌더링하고 모든 보안 파일의 digest를 기록합니다. 렌더링 결과는 게이트에서도 재생성해 대조합니다.
+운영 conf는 nginx.conf·policy.conf·site.conf·mime.types 네 파일뿐입니다. 공통 정책의
+단일 OS marker만 Linux native 차단과 Windows OS ACL 요구사항으로 렌더링합니다.
+보안 안내 두 파일·KISA 대응표와 운영 파일은 release_inputs로 고정합니다. 별도 생성용
+config/site-template.conf는 site_templates 해시로 계획에 고정하고 빌드/게이트에서 재확인합니다.
+템플릿/예제/프롬프트/backend YAML은 운영 패키지에 포함하지 않습니다.
 
-기존 40개 검사에 53개 패키지 보안 프로필 검사를 추가합니다. 배포된 실제 파일의 기본
-ON 상태로 리디렉션, unknown Host/SNI, 헤더 상속, 파일·메소드·요청 제한, 프록시·쿠키·관리자
-CIDR을 검사합니다. 32개 정책을 하나씩 OFF한 설정과 모두 OFF한 설정을 실제 바이너리로
-문법 검사하고, 대표 10개 정책은 OFF 동작과 다른 정책 유지 여부도 실제 요청으로 확인합니다.
-단일 도메인 SPA/REST/WebSocket 샘플은 선택된 정책 각각 OFF와 모두 OFF의 문법 및
-실제 101/frame 왕복, origin 거부, 두 목적지와 prefix/query 유지, REST 메소드·헤더·캐시·
-정규식 우선순위·index 부재를 추가 검사합니다. 테스트 포트/loopback backend/CIDR·인증서
-fixture 외의 보안 지시문은 교체하지 않습니다. 파일 서버 선택지는 배포된 include를 전환하여
-5 MiB 초과 실제 multipart 허용, 1 GiB 초과 요청 거부, 기본 5 MiB 복원을 추가 검사합니다.
-SPA CSS의 text/css, .mjs의 JavaScript MIME과 nosniff, CSP의 인라인 CSS 허용 및
-JavaScript 출처 제한도 검사합니다.
-함께 배포하는 Spring Boot/Tomcat YAML은 설정 예시이며 실제 고객사 backend를 실행 검증한 것은 아닙니다.
-Linux는 실제 symlink 요청 거부를 검사합니다. Windows는 native 기능이 없음을 명시한
-정책/운영 요구사항을 검사하며 NTFS 링크 차단을 실행 검증했다고 표시하지 않습니다.
+기존 40개 엔진 검사와 64개 패키지/사이트 검사를 각 OS/CPU에서 실행합니다. 두 vhost를
+한 site.conf에 구성해 root/backend/CSP/Origin 목록/용량/공개 모드가 섞이지 않는지 확인합니다.
+출처 검사 기본 포트 정규화·비표준 포트·하위 도메인 경계, 공개 API credentials, WS 독립 선택,
+Origin 없는 WS의 명시적 허용, preflight, REST 메소드, URI/query와 전달 헤더, 쿠키/캐시/오류,
+CSS/mjs MIME, 실제 WS 101/frame, 정책을 유지한 사이트별 선택 변경을 검사합니다.
+6 MiB 실제 multipart 허용, 1 GiB 초과 Content-Length 거부, 다른 사이트 5 MiB 제한도 확인합니다.
+Windows는 NTFS 링크/ACL을 실행 검증했다고 주장하지 않으며 Linux는 실제 링크 거부를 검사합니다.
+Spring/Tomcat의 파일당 50 MiB·폼 5 MiB는 별도 backend 설정이며 실제 고객사 앱 검증은 아닙니다.
 
 ## 실행 검사와 릴리즈 게이트
 
 동일한 `tests/run-integration.py`가 9개 OS/CPU 조합에서 **패키지를 풀어 실제 배포 바이너리**로
-실행됩니다. 버전, 빌드 옵션, 유효/무효 설정, 기본 샘플 설정, HTTP·HTTPS 서버, 정적 파일,
+실행됩니다. 버전, 빌드 옵션, 유효/무효 설정, 운영 공통 설정, HTTP·HTTPS 서버, 정적 파일,
 HEAD, 404·500, 프록시 성공·오류, Server 헤더 제거/변경, X-Powered-By 제거,
 gzip, rewrite, TLS 1.2/1.3와 HTTP/2 ALPN/SETTINGS를 검사합니다.
 테스트 인증서와 키는 loopback 전용 공개 fixture입니다.

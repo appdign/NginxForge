@@ -8,10 +8,8 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-SECURITY_DOCS = ['docs/SECURITY-CONFIG.md', 'docs/SECURITY-OWNERSHIP.md',
-                 'docs/prompts/FRONTEND-CODE-REVIEW.md', 'docs/prompts/SPRING-BOOT-CODE-REVIEW.md',
-                 'docs/backend/application-upload.yml.example']
-PLATFORM_POLICY_SOURCE = 'config/runtime/policies/server/symlinks.conf'
+SECURITY_DOCS = ['docs/SECURITY-CONFIG.md', 'docs/SECURITY-OWNERSHIP.md']
+PLATFORM_POLICY_SOURCE = 'config/runtime/policy.conf'
 PLATFORM_POLICY_MARKER = b'# NGINXFORGE_PLATFORM_POLICY'
 
 def render_platform_policy(source, target):
@@ -115,6 +113,9 @@ def release_inputs():
     paths += [ROOT / name for name in SECURITY_DOCS] + [ROOT / 'security/kisa-2026.json']
     return {p.relative_to(ROOT).as_posix(): sha256(p) for p in sorted(paths)}
 
+def site_templates():
+    return {'config/site-template.conf': sha256(ROOT/'config/site-template.conf')}
+
 def verify_plan(plan):
     stored = dict(plan)
     digest = stored.pop('digest')
@@ -127,6 +128,8 @@ def verify_plan(plan):
         raise ValueError('Build configuration differs from resolved plan')
     if plan.get('release_inputs') != release_inputs():
         raise ValueError('Runtime configuration/security policy differs from resolved plan')
+    if plan.get('site_templates') != site_templates():
+        raise ValueError('Site configuration template differs from resolved plan')
     actual = {str(p.relative_to(ROOT)).replace('\\', '/'): sha256(p)
               for p in sorted((ROOT / 'patches').glob('*.patch'))}
     if actual != plan['patches']:
