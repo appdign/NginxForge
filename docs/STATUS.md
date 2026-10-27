@@ -1,74 +1,59 @@
 # 완료 기준과 실제 검증 상태
 
-r10 변경 검증 중: site_embed_domain 한 줄의 iframe 허용 및 KISA 주석을 추가합니다.
-API/CORS/WebSocket은 기존대로 유지합니다. 전체 필수 플랫폼·발행 검증 전까지 r10을 완료로 표시하지 않습니다.
-
-2026-10-21 검증 결과: **NGINX 1.30.6 / NginxForge r9 정식 발행 및 Latest 지정 완료**.
-기존 38개 분할 정책과 개별 include ON/OFF를 유지합니다. 도메인은 site.conf 맨 위
-server_name 한 줄만 입력하고 HTTP/HTTPS 이동·동일 출처 API·현재 WSS CSP가 자동 반영됩니다.
-외부 허용 목록·CSP 목적지·API/WS/backend·쿠키/업무 제한도 site.conf에서만 설정합니다.
-nginx.conf/공통 정책에는 배포 도메인/backend를 입력하지 않습니다.
+2026-10-27 검증 결과: **NGINX 1.30.6 / NginxForge r10 정식 발행 및 Latest 지정 완료**.
+site.conf의 site_embed_domain 한 줄로 iframe 부모 도메인/와일드카드를 지정합니다.
+CSP frame-ancestors와 X-Frame-Options가 자동으로 연동되며 운영 도메인은 정책/nginx.conf에
+반복 입력하지 않습니다. API 프록시 목적지·CORS·WebSocket·connect-src는 기존대로 유지합니다.
+분할 정책 38개와 개별 include ON/OFF를 보존하고 설정 옆에 KISA WEB-xx/추가 강화 주석을 넣었습니다.
 
 - [x] Linux AMD64/ARM64 native musl 완전 정적 빌드
 - [x] Ubuntu 22.04/24.04, Rocky Linux 8/9에서 AMD64/ARM64 각각 실행
 - [x] Windows Server 2022 AMD64 native 실행과 build 20348 확인
-- [x] 기존 38개 분할 정책 보존과 활성 include별/모두 OFF 문법 검사
-- [x] server_name 한 줄 변경 후 이동·API·WS·CSP 자동 변경 실행
-- [x] 두 가상호스트의 root/backend/허용 목록/공개 모드/쿠키/캐시/오류/rate/본문 제한 분리
-- [x] unknown Host/SNI 거부와 현재 비표준 포트/명시적 기본 포트 처리
-- [x] 정확한 외부 Origin·하위 도메인 패턴 허용과 악성 suffix·다른 scheme/port·apex 거부
-- [x] public API wildcard/credentials 충돌 방지, API와 WS 공개의 독립성
-- [x] Origin 없는 WS 기본 거부와 사이트별 명시적 허용
-- [x] 실제 WS 101 handshake와 마스킹된 frame 왕복·전체 전달 헤더
-- [x] 정적 GET/HEAD와 REST 구분, URI prefix/query, SPA fallback/index 부재 처리
-- [x] 파일/디렉터리/관리 경로/소스맵·보안 헤더·쿠키·캐시·오류·TLS·IP 빈도 제한
-- [x] 6 MiB multipart 통과, 1 GiB 초과 Content-Length 거부, 사이트별 5 MiB 거부
-- [x] 인라인 CSS·동일 사이트 JS/MJS 허용과 인라인 JS/onclick/eval 차단
-- [x] 샘플/backend YAML/코드 프롬프트를 운영 conf와 분리
-- [x] 세 바이너리·9개 환경 전체 성공 후 다섯 릴리즈 자산 발행/Latest 지정
-- [x] 공개 다섯 파일 재다운로드·해시·manifest·원본/OS별 렌더링 재검증
-- [x] 발행 후 업스트림 재조회와 중복 빌드/발행 생략
+- [x] 기존 엔진 40개와 패키지/사이트 70개, 환경당 110개 × 9 = **990개 실행 검사**
+- [x] 빈값/잘못된 iframe 옵션은 동일 출처만 허용하고 SAMEORIGIN 유지
+- [x] 유효한 iframe 도메인은 HTTP/HTTPS 부모의 모든 포트 허용 및 upstream XFO 충돌 제거
+- [x] iframe 옵션 변경 시 다른 가상호스트/API/CORS/WebSocket/connect-src 범위 유지
+- [x] KISA WEB-01~WEB-26 주석 연결과 운영/앱 점검·추가 강화 구분
+- [x] 단위 검사 30개, actionlint 및 설정/문서 해시 검증
+- [x] 세 바이너리·9개 환경 전체 성공 후 다섯 자산 발행 및 Latest 지정
+- [x] 공개 파일 재다운로드·해시·manifest·OS별 정책 렌더링 재검증
+- [x] 발행 후 공식 업스트림 재조회 및 같은 릴리즈 중복 빌드/발행 생략
 
-각 환경의 기존 엔진 40개와 패키지/사이트 64개, **104개 × 9 = 936개 실행 검사**가
-통과했습니다. 릴리즈 안전성 단위 검사 30개와 actionlint도 통과했습니다.
-Linux ELF의 인터프리터/외부 DSO 부재, Windows AMD64 PE의 정적 CRT/시스템 DLL 의존성을
-확인했습니다. Linux 두 아키텍처의 소스·패치·의존성·정책은 동일합니다.
-사이트별 변경 중 공통 분할 정책 38개를 변경하지 않았음을 검사했습니다.
-
-운영 conf는 세 기반 파일(nginx.conf·mime.types·site.conf)과 분할 정책 38개, 총 41개입니다.
-44개 release_inputs와 별도 사이트 템플릿 해시를 공통 계획에서 고정합니다.
-공개 초기 site.conf는 127.0.0.1:8080에서 요청을 거부합니다. 실제 site.conf를 설치해야
-HTTPS 사이트를 제공합니다. 이전 conf.d/map과 중복 로드하지 않습니다.
-NGINX C 소스·의존성·핵심 패치는 이번 설정 변경으로 달라지지 않았습니다.
+로컬 Windows Chrome에서 별도 **15개 실제 iframe 시나리오**를 통과했습니다.
+HTTP/HTTPS 비표준 포트·중첩 하위 도메인·동일 출처는 허용하고 apex·악성 suffix·다른 회사·
+다른 가상호스트·허용되지 않은 상위 ancestor는 차단했습니다. 한 줄 도메인 교체/정확한 호스트/
+빈값 복원도 실행했습니다. iframe 허용 후에도 회사 부모의 브라우저 API CORS는 차단됐습니다.
+브라우저 증거는 사이트 템플릿과 frame-options.conf의 SHA-256으로 릴리즈 입력과 대조했습니다.
 
 | 증거 | 결과 |
 | --- | --- |
-| [전체 빌드·실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/39459365947) | 최종 소스 전체 workflow success, 세 바이너리·9개 환경·936개 검사 |
-| [발행 후 업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/39460879027) | 같은 r9의 중복 빌드/발행 생략 |
-| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r9) | 다섯 자산, draft=false, prerelease=false, Latest 확인 |
-| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r9/build-manifest.json) | 소스·의존성·옵션·툴체인·배포 입력/사이트 템플릿 해시·실행 증거 |
-| [보안 설정 안내](SECURITY-CONFIG.md) | 분할 정책 ON/OFF·도메인 한 줄·사이트별 API/WS/CSP·KISA 범위 |
+| [전체 빌드·실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/40454885270) | 세 바이너리·9개 환경·990개 검사 |
+| [발행 후 업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/40455746117) | 같은 r10의 중복 빌드/발행 생략 |
+| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r10) | 다섯 자산, draft=false, prerelease=false, Latest |
+| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r10/build-manifest.json) | 소스/의존성/옵션/툴체인·44개 배포 입력·사이트 템플릿·실행 증거 |
+| [보안 설정 안내](SECURITY-CONFIG.md) | 한 줄 iframe 옵션·KISA 주석·기존 API/CORS/WS와 독립성 |
 
-빌드 소스: fcbbf39d8aac8934b4a6bb148b834d2ef2e6196d.
+빌드 소스: 2c85de8213f4fe91ffe66c7a87022f8c24256a0d.
 NGINX 공식 commit: fb0e979c6dd63c018958b41eeb844947c5c21264.
 의존성: headers-more 0.40, OpenSSL 3.5.9, PCRE2 10.49, zlib 1.3.2.
+NGINX C 소스·핵심 패치·의존성은 이번 설정 변경으로 달라지지 않았습니다.
+운영 conf는 세 기반 파일과 분할 정책 38개, 총 41개이며 예제/코드 프롬프트/backend YAML을 섞지 않습니다.
 
-Windows Chrome fixture에서 computed CSS/style 속성/style 태그/동적 style과 동일 출처 MJS
-import, 인라인 script/onclick/eval 차단을 확인했습니다. 고객사 앱/운영 서버 검증은 아닙니다.
-인라인 CSS 허용은 호환 선택이며 엄격한 스타일 정책에는 앱의 nonce/hash 연동이 필요합니다.
+iframe 허용은 세션 인증·인가·쿠키 정책을 바꾸지 않습니다. HTTP SAP 등의 임베드 로그인은
+SameSite=Lax와 브라우저 서드파티 쿠키 제한을 실제 환경에서 별도로 확인해야 합니다.
+브라우저 fixture는 실제 SAP·고객사 앱/세션/인증서 검증이 아닙니다. 운영 서버에는 자동 적용하지 않았습니다.
 
-전체 1 GiB는 파일+폼+multipart 형식/JSON 본문 상한이며 다운로드 제한은 아닙니다.
-초과 Content-Length의 즉시 거부를 검사했으며 1 GiB 전체 전송 부하 검사는 아닙니다.
-파일당 50 MiB·폼 파라미터 5 MiB는 별도 Spring MVC/Tomcat 설정이고 실제 고객사 앱을
-실행 검증한 것은 아닙니다. Origin/CORS/CSP는 인증·객체별 인가·CSRF를 대신하지 않습니다.
-
-Linux는 native userspace 컨테이너이며 runner 커널을 공유합니다. 링크 파일 내용의 접근을
-거부하며 SPA의 try_files는 차단된 파일 대신 정확한 공개 index를 반환할 수도 있습니다.
-Windows는 symlink 지시문 미지원이므로 OS ACL/reparse point 검토 요구를 검사했습니다.
-고객사 커널·서비스·SSO·backend 직접 포트·실제 인증서·부하·NTFS ACL은 별도 확인합니다.
-실제 운영 설정은 자동 변경하지 않았습니다. KISA WEB-01~26 대응표는 인증/자동 합격 판정이 아닙니다.
+전체 1 GiB는 요청 본문 상한이며 파일당 50 MiB·폼 5 MiB는 별도 Spring MVC/Tomcat 설정입니다.
+Linux 컨테이너는 native userspace를 검사하고 runner 커널을 공유합니다. Windows symlink는
+OS ACL/reparse point 검토가 필요하며 고객사 서비스·부하·인증서·커널·NTFS 검증은 별도입니다.
+KISA 대응 주석/표는 인증이나 자동 합격 판정이 아닙니다.
 
 ## 이전 릴리즈 기록
+
+r9는 [936개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/39459365947)을
+통과했습니다. [r9 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r9)는
+38개 분할 정책을 유지하면서 도메인 한 줄과 사이트별 API/WS/backend 제어를 제공했습니다.
+빌드 소스는 fcbbf39d8aac8934b4a6bb148b834d2ef2e6196d입니다.
 
 r8은 [837개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/39412754812)을
 통과했습니다. [r8 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r8)는
