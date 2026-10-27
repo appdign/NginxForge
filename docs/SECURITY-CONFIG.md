@@ -29,9 +29,39 @@ server_name 자체를 단일 설정값으로 사용합니다. 실행 시 bat/템
 설정하고 site_id만 고유하게 지정합니다. 외부 허용 목록은 site_id로 구분하므로 자체 도메인을
 그 목록에 다시 적지 않습니다. 공통 map/zone/기본 리스너는 중복 복사하지 않습니다.
 
+## iframe 임베드 허용은 한 줄만
+
+각 사이트 구역 맨 위에서 다음 **한 줄**만 지정합니다. 실제 운영 도메인은 site.conf에만
+입력하며, nginx.conf/분할 정책에는 반복 입력하지 않습니다.
+
+```nginx
+set $site_embed_domain "*.example.org";
+```
+
+이 값으로 CSP frame-ancestors와 X-Frame-Options가 함께 계산됩니다.
+빈값 `""`이면 기존처럼 동일 출처만 허용하고 X-Frame-Options: SAMEORIGIN을 발행합니다.
+유효한 도메인이 있으면 동일 출처와 지정한 HTTP/HTTPS 부모만 허용합니다.
+부모의 포트는 모두 허용하여 8000 같은 사내 포트도 포함합니다.
+와일드카드는 하위 도메인과 그 아래 하위 도메인에 적용하며 최상위 example.org 자체와
+example.org.evil 같은 악성 suffix는 허용하지 않습니다. 정확한 호스트 한 개도 지정할 수 있습니다.
+형식은 호스트 또는 *.호스트이며 scheme/port/path를 넣지 않습니다. 잘못된 값은 동일 출처로 제한합니다.
+
+외부 임베드 허용 시 충돌하는 X-Frame-Options는 발행하지 않고 upstream 헤더도 숨깁니다.
+CSP frame-ancestors가 실제 허용 목록을 적용하며 ALLOW-FROM 같은 폐기된 헤더는 사용하지 않습니다.
+중첩 iframe은 모든 상위 페이지의 출처가 허용 목록에 들어야 합니다.
+
+**이 옵션은 iframe 허용만 변경합니다. API 프록시 목적지·CORS·WebSocket Origin·connect-src는
+기존 설정 그대로입니다.** 같은 회사 프론트라도 다른 출처의 API 사용이 필요하면 기존 CORS
+목록에서 별도로 선택합니다. iframe 로그인은 세션 쿠키의 SameSite와 브라우저 서드파티 쿠키 정책을
+따로 확인합니다. 임베드를 허용한다고 인증/인가나 쿠키 정책이 자동 변경되지 않습니다.
+
+사이트별 include와 주요 지시문 옆에 KISA WEB-01~WEB-26 번호/조치 목적을 표시했습니다.
+CSP/프레임/추가 헤더는 `[추가 강화]`로 구분하고 KISA에 없는 항목 번호를 붙이지 않습니다.
+계정·암호·OS ACL·LDAP·패치/로그처럼 앱 또는 운영에서 확인할 항목도 같은 파일 주석에 남깁니다.
+
 ## site.conf에서 찾을 곳
 
-1. 맨 위 사이트 구역: server_name 한 줄, 인증서, 키, root.
+1. 맨 위 사이트 구역: server_name 한 줄, site_embed_domain 한 줄, 인증서, 키, root.
 2. 같은 구역의 site_csp: 우리 화면에서 접근할 외부 API/WSS/CDN/SSO의 목적지.
    현재 사이트의 WSS는 자동 반영됩니다. 인라인 CSS만 허용하고 인라인 JS/onclick/eval은 차단합니다.
 3. site_cors_mode와 site_ws_mode: 외부에서 우리 API/WS로 오는 브라우저의 출처 허용 방식.

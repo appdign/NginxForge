@@ -51,11 +51,13 @@ config/runtime의 공통 설정과 38개 분할 정책·초기 site.conf, 두 �
 템플릿을 사용하는 것을 막습니다. 실제 고객사 도메인은 소스/공개 패키지에 포함하지 않습니다.
 symlinks.conf의 OS marker만 Linux native 차단과 Windows ACL 안내로 렌더링합니다.
 
-기존 40개 엔진 검사와 64개 패키지/사이트 검사를 9개 필수 환경에서 실행합니다.
+기존 40개 엔진 검사와 70개 패키지/사이트 검사를 9개 필수 환경에서 실행합니다.
 실제 패키지의 38개 정책을 유지하면서 생성한 두 가상호스트를 같은 프로세스에서 검사합니다.
 각 활성 include를 하나씩 OFF 및 모두 OFF한 문법, 현재 호스트/포트 기반 CSP, 도메인 한 줄
 변경, unknown Host/SNI 거부, backend/root 분리, 정확한/와일드카드 외부 Origin과 악성 suffix/
 scheme/port 거부, API 공개/WS 공개/Origin 없는 WS의 독립성을 검증합니다.
+임베드 도메인 한 줄의 CSP/XFO 연동·잘못된 형식의 동일 출처 제한·다른 vhost/API/CORS/WS의
+허용 범위 유지도 검사합니다.
 정책 파일을 변경하지 않은 상태에서 사이트별 CSP/쿠키/캐시/오류/ACL/rate/본문 제한을 바꾸고
 다른 사이트에 전파되지 않는지도 확인합니다. 6 MiB multipart 허용·1 GiB 초과 거부·5 MiB
 사이트별 제한, 실제 WebSocket 101/frame 왕복, CSS/MJS MIME과 CSP 경계도 검사합니다.

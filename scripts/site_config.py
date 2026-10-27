@@ -27,6 +27,12 @@ def external_rule(site_id, origin):
     if value.port is not None: authority+=':'+str(value.port)
     return '    ~*^'+re.escape(site_id)+'[|]'+value.scheme+'://'+authority+'$ $http_origin;'
 
+def embed_domain(value):
+    value=str(value)
+    if value and not re.fullmatch(r'(?:\*\.)?[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*',value):
+        raise ValueError('Embedding domain must be a hostname or leading *. wildcard; no scheme, port or path')
+    return quoted(value.lower())
+
 def render_sites(sites, rules=()):
     if not sites: raise ValueError('At least one site is required')
     source=(ROOT/'config/site-template.conf').read_text(encoding='utf-8')
@@ -41,7 +47,7 @@ def render_sites(sites, rules=()):
         if not re.fullmatch(r'[A-Za-z0-9.-]+',host): raise ValueError('Literal host required')
         for field in ['spring','storage']:
             if not re.fullmatch(r'[A-Za-z0-9.:-]+',spec[field]): raise ValueError('Fixed backend required')
-        return {'HOST':host,'SITE_ID':spec['site_id'],'CERT':quoted(spec['cert']),'KEY':quoted(spec['key']),'ROOT':quoted(spec['root']),
+        return {'HOST':host,'SITE_ID':spec['site_id'],'EMBED_DOMAIN':embed_domain(spec.get('embed_domain','')),'CERT':quoted(spec['cert']),'KEY':quoted(spec['key']),'ROOT':quoted(spec['root']),
                 'SPRING':spec['spring'],'STORAGE':spec['storage'],'BODY':spec.get('body','1g'),
                 'HTTP_LISTEN':spec.get('http_listen','80'),'HTTPS_LISTEN':spec.get('https_listen','443'),
                 'HTTPS_AUTH_PORT':spec.get('https_auth_port','')}

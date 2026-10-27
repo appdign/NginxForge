@@ -30,7 +30,9 @@ SPA_CHECKS=['spa:'+name for name in [
 SITE_CHECKS=['site:'+name for name in [
     'same-origin-port','virtualhost-backends','external-origin-isolation','wildcard-boundaries',
     'dynamic-csp-host','public-api-isolation','public-api-credentials','websocket-api-independence',
-    'originless-websocket-option','site-limit-isolation','common-policy-unchanged']]
+    'originless-websocket-option','site-limit-isolation','common-policy-unchanged',
+    'embed-default','embed-wildcard','embed-isolation','embed-invalid-fail-closed',
+    'embed-api-isolation','embed-websocket-isolation']]
 
 def run_site_profiles(binary,runtime,metadata,target,root,check,done):
     runtime,binary,root=Path(runtime),Path(binary),Path(root)
@@ -180,6 +182,7 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                     check(status==200 and data==('SPA '+host+'\n').encode(),'Wrong virtualhost root for '+host+': status='+str(status)+' body='+repr(data[:200])+' root='+str(roots[host])+' log='+(base/'logs/error.log').read_text(encoding='utf-8',errors='replace')[-2000:])
                     check(('wss://'+host+':'+str(https_port)) in headers['Content-Security-Policy'],'CSP used another host/port')
                 done('profile:static-https');done('site:dynamic-csp-host')
+                check("frame-ancestors 'self';" in headers['Content-Security-Policy'] and headers.get_all('X-Frame-Options')==['SAMEORIGIN'],'Default frame policy changed');done('site:embed-default')
                 for path in ['/index.html','/secret.key','/api/fail']:
                     status,headers,data=request('alpha.test',path)
                     for key,value in [('X-Content-Type-Options','nosniff'),('X-Frame-Options','SAMEORIGIN'),
@@ -306,6 +309,21 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                 check(websocket('gamma.test')[0]==101,'One-line domain change did not update WebSocket')
                 status,headers,data=request('gamma.test','/screen',secure=False)
                 check(status==308 and headers['Location']==origin('gamma.test')+'/screen','One-line domain change did not update redirect')
+                stop()
+                embedded=section_change(template,'alpha.test',lambda b:b.replace('set $site_embed_domain "";','set $site_embed_domain "*.trusted.test";'))
+                embedded=section_change(embedded,'beta.test',lambda b:b.replace('set $site_embed_domain "";','set $site_embed_domain "https://*.trusted.test";'))
+                start(embedded)
+                for path in ['/app.css','/api/items']:
+                    status,headers,data=request('alpha.test',path)
+                    check(status==200 and headers.get_all('X-Frame-Options') is None and len(headers.get_all('Content-Security-Policy'))==1 and "frame-ancestors 'self' http://*.trusted.test:* https://*.trusted.test:*;" in headers['Content-Security-Policy'],'One-line embedding policy/header mismatch')
+                    check('connect-src \'self\' wss://alpha.test:'+str(https_port)+';' in headers['Content-Security-Policy'],'Embedding option expanded outbound API/WS sources')
+                done('site:embed-wildcard')
+                status,headers,data=request('beta.test','/app.css')
+                check(status==200 and "frame-ancestors 'self';" in headers['Content-Security-Policy'] and headers.get_all('X-Frame-Options')==['SAMEORIGIN'],'Embedding option crossed virtual hosts');done('site:embed-isolation')
+                check('https://*.trusted.test' not in headers['Content-Security-Policy'],'Invalid embedding pattern broadened policy');done('site:embed-invalid-fail-closed')
+                status,headers,data=request('alpha.test','/api/items',headers={'Origin':'http://portal.trusted.test:8000'})
+                check(status==403 and headers.get('Access-Control-Allow-Origin') is None,'Embedding option expanded API/CORS allowance');done('site:embed-api-isolation')
+                check(websocket(value='http://portal.trusted.test:8000')[0]==403 and websocket()[0]==101,'Embedding option expanded WebSocket allowance');done('site:embed-websocket-isolation')
                 check(all((base/'conf'/name).read_bytes()==data for name,data in policy_bytes.items()),'Site changes mutated split policies');done('site:common-policy-unchanged')
             finally:stop();log.close()
     finally:

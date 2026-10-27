@@ -1,5 +1,8 @@
 # 완료 기준과 실제 검증 상태
 
+r10 변경 검증 중: site_embed_domain 한 줄의 iframe 허용 및 KISA 주석을 추가합니다.
+API/CORS/WebSocket은 기존대로 유지합니다. 전체 필수 플랫폼·발행 검증 전까지 r10을 완료로 표시하지 않습니다.
+
 2026-10-21 검증 결과: **NGINX 1.30.6 / NginxForge r9 정식 발행 및 Latest 지정 완료**.
 기존 38개 분할 정책과 개별 include ON/OFF를 유지합니다. 도메인은 site.conf 맨 위
 server_name 한 줄만 입력하고 HTTP/HTTPS 이동·동일 출처 API·현재 WSS CSP가 자동 반영됩니다.

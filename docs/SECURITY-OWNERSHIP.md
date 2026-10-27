@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | NGINX 공통 기반 | 로그·MIME·헤더 상속·공유 TLS | `conf/nginx.conf`, `conf/policies/http/tls.conf` |
 | NGINX 정책 스위치 | 정보/보안 헤더·CSP·CORS·쿠키·제한·관리 경로 등 목적별 정책 파일, 기본 ON | `conf/site.conf`의 개별 include, `conf/policies/` |
-| 사이트별 설정 | 도메인 한 줄·CSP 목적지·CORS/WS 모드와 외부 Origin 목록·API/backend·쿠키·업무 제한 | `conf/site.conf` |
+| 사이트별 설정 | 도메인 한 줄·iframe 허용 한 줄·CSP 목적지·CORS/WS 모드와 외부 Origin 목록·API/backend·쿠키·업무 제한 | `conf/site.conf` |
 | 프론트 코드 | 안전한 출력/HTML 처리, URL/메시지 검증, 인증정보·계정 전환 상태 처리, CSRF 프로토콜 연동 | [프론트 코드 프롬프트](https://github.com/appdign/NginxForge/blob/main/docs/prompts/FRONTEND-CODE-REVIEW.md) |
 | Spring Boot 코드 | 데이터별 인가, DTO/쿼리/파일/외부 URL 처리, 업무 할당량·일회성 토큰·오류/감사 로직 | [백엔드 코드 프롬프트](https://github.com/appdign/NginxForge/blob/main/docs/prompts/SPRING-BOOT-CODE-REVIEW.md) |
 | Spring/인증 서버 설정 | 인증 필터 체인, 표준 JWT 검증, 세션 TTL/폐기 정책, 비밀번호 해시 정책, Actuator 노출, multipart 파일 50 MiB/요청 1 GiB·Tomcat 폼 5 MiB | 앱 프레임워크/IdP 구성. [업로드 설정 예시](https://github.com/appdign/NginxForge/blob/main/docs/backend/application-upload.yml.example). Java 설정도 포함 |

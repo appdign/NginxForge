@@ -1,4 +1,4 @@
-"""Native tests for the consolidated production configuration."""
+"""Native tests for the split production policies and per-site controls."""
 from site_profiles import PROFILE_CHECKS, SPA_CHECKS, SITE_CHECKS, run_site_profiles
 
 COMMON_CHECKS = PROFILE_CHECKS + SPA_CHECKS + SITE_CHECKS
