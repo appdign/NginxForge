@@ -1,9 +1,8 @@
 # 완료 기준과 실제 검증 상태
 
-r11 검증 중: 정책 38개 전체에 취약점/조치/별도 점검 주석을 보강하고, 공개 배포에도 주석 포함 사이트 원본을 제공합니다.
-맞춤형은 최소 업데이트가 아닌 전체 구성본으로 다시 제공합니다. 전체 검증/발행 전에는 r11을 완료로 표시하지 않습니다.
-
-2026-10-27 검증 결과: **NGINX 1.30.6 / NginxForge r10 정식 발행 및 Latest 지정 완료**.
+2026-10-27 검증 결과: **NGINX 1.30.6 / NginxForge r11 정식 발행 및 Latest 지정 완료**.
+공개 배포와 맞춤형 전체 구성본에 정책 38개 전체를 포함하고 각 파일에 취약점/조치/별도 점검 주석을 보강했습니다.
+공개 패키지에도 주석 포함 사이트 원본을 security/site-template.conf로 제공하며 운영 conf에서 자동 로드하지 않습니다.
 site.conf의 site_embed_domain 한 줄로 iframe 부모 도메인/와일드카드를 지정합니다.
 CSP frame-ancestors와 X-Frame-Options가 자동으로 연동되며 운영 도메인은 정책/nginx.conf에
 반복 입력하지 않습니다. API 프록시 목적지·CORS·WebSocket·connect-src는 기존대로 유지합니다.
@@ -12,10 +11,11 @@ CSP frame-ancestors와 X-Frame-Options가 자동으로 연동되며 운영 도�
 - [x] Linux AMD64/ARM64 native musl 완전 정적 빌드
 - [x] Ubuntu 22.04/24.04, Rocky Linux 8/9에서 AMD64/ARM64 각각 실행
 - [x] Windows Server 2022 AMD64 native 실행과 build 20348 확인
-- [x] 기존 엔진 40개와 패키지/사이트 70개, 환경당 110개 × 9 = **990개 실행 검사**
+- [x] 기존 엔진 40개와 패키지/사이트 71개, 환경당 111개 × 9 = **999개 실행 검사**
 - [x] 빈값/잘못된 iframe 옵션은 동일 출처만 허용하고 SAMEORIGIN 유지
 - [x] 유효한 iframe 도메인은 HTTP/HTTPS 부모의 모든 포트 허용 및 upstream XFO 충돌 제거
 - [x] iframe 옵션 변경 시 다른 가상호스트/API/CORS/WebSocket/connect-src 범위 유지
+- [x] 패키지 안 정책 38개 모두의 취약점/조치/별도 점검 주석 및 사이트 원본 포함 검사
 - [x] KISA WEB-01~WEB-26 주석 연결과 운영/앱 점검·추가 강화 구분
 - [x] 단위 검사 30개, actionlint 및 설정/문서 해시 검증
 - [x] 세 바이너리·9개 환경 전체 성공 후 다섯 자산 발행 및 Latest 지정
@@ -30,17 +30,18 @@ HTTP/HTTPS 비표준 포트·중첩 하위 도메인·동일 출처는 허용하
 
 | 증거 | 결과 |
 | --- | --- |
-| [전체 빌드·실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/40454885270) | 세 바이너리·9개 환경·990개 검사 |
-| [발행 후 업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/40455746117) | 같은 r10의 중복 빌드/발행 생략 |
-| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r10) | 다섯 자산, draft=false, prerelease=false, Latest |
-| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r10/build-manifest.json) | 소스/의존성/옵션/툴체인·44개 배포 입력·사이트 템플릿·실행 증거 |
+| [전체 빌드·실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/40462605813) | 세 바이너리·9개 환경·999개 검사 |
+| [발행 후 업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/40463760750) | 같은 r11의 중복 빌드/발행 생략 |
+| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r11) | 다섯 자산, draft=false, prerelease=false, Latest |
+| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r11/build-manifest.json) | 소스/의존성/옵션/툴체인·45개 배포 입력·사이트 템플릿·실행 증거 |
 | [보안 설정 안내](SECURITY-CONFIG.md) | 한 줄 iframe 옵션·KISA 주석·기존 API/CORS/WS와 독립성 |
 
-빌드 소스: 2c85de8213f4fe91ffe66c7a87022f8c24256a0d.
+빌드 소스: 264bcacca62758d3f49fcaf93c958ae6de2a3a90.
 NGINX 공식 commit: fb0e979c6dd63c018958b41eeb844947c5c21264.
 의존성: headers-more 0.40, OpenSSL 3.5.9, PCRE2 10.49, zlib 1.3.2.
-NGINX C 소스·핵심 패치·의존성은 이번 설정 변경으로 달라지지 않았습니다.
-운영 conf는 세 기반 파일과 분할 정책 38개, 총 41개이며 예제/코드 프롬프트/backend YAML을 섞지 않습니다.
+NGINX C 소스·핵심 패치·의존성 및 실제 설정 지시문은 r10과 동일하며 주석·배포 구성만 보강했습니다.
+운영 conf는 세 기반 파일과 분할 정책 38개, 총 41개이며 비활성 사이트 원본은 security 폴더로 분리합니다.
+맞춤형 전체 구성본은 conf 41개·오류 HTML·보안 안내/대응표·출처/라이선스를 포함하며 최소 업데이트와 구분합니다.
 
 iframe 허용은 세션 인증·인가·쿠키 정책을 바꾸지 않습니다. HTTP SAP 등의 임베드 로그인은
 SameSite=Lax와 브라우저 서드파티 쿠키 제한을 실제 환경에서 별도로 확인해야 합니다.
@@ -52,6 +53,12 @@ OS ACL/reparse point 검토가 필요하며 고객사 서비스·부하·인증�
 KISA 대응 주석/표는 인증이나 자동 합격 판정이 아닙니다.
 
 ## 이전 릴리즈 기록
+
+r10은 [990개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/40454885270)을
+통과했습니다. [r10 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r10)는
+iframe 도메인 한 줄과 site.conf의 KISA 항목 주석을 제공했습니다. 빌드 소스는
+2c85de8213f4fe91ffe66c7a87022f8c24256a0d입니다. 맞춤형 r10 ZIP은 최소 업데이트였고
+r11부터는 주석 보강된 정책 38개 전체를 포함한 맞춤형 전체 구성본을 제공합니다.
 
 r9는 [936개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/39459365947)을
 통과했습니다. [r9 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r9)는
