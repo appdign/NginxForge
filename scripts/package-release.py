@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tarfile
 import zipfile
-from common import ROOT, SECURITY_DOCS, PLATFORM_POLICY_SOURCE, asset_name, load, packaged_policy_path, render_platform_policy, sha256, verify_plan, write
+from common import ROOT, SECURITY_DOCS, SECURITY_REFERENCES, PLATFORM_POLICY_SOURCE, asset_name, load, packaged_policy_path, render_platform_policy, sha256, verify_plan, write
 
 TARGETS = {'linux-amd64', 'linux-arm64', 'windows-amd64'}
 
@@ -90,11 +90,11 @@ def main():
         (stage / name).mkdir()
         (stage / name / '.keep').touch()
     (stage / 'html/__nginxforge_error.html').write_text('<!doctype html><title>Request unavailable</title><p>The request could not be completed.</p>\n')
-    for name in SECURITY_DOCS:
+    for name in SECURITY_DOCS + SECURITY_REFERENCES:
         destination = stage / packaged_policy_path(name)
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(str(ROOT/name), str(destination))
-    (stage/'security').mkdir()
+    (stage/'security').mkdir(exist_ok=True)
     shutil.copy2(str(ROOT/'security/kisa-2026.json'),str(stage/'security/kisa-2026.json'))
     configuration = {packaged_policy_path(name): sha256(stage/packaged_policy_path(name))
                      for name in plan['release_inputs']}

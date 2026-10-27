@@ -13,6 +13,23 @@
 | conf/nginx.conf | worker·로그·MIME·헤더 상속·공유 TLS와 site.conf 로드 |
 | conf/mime.types | js/mjs는 application/javascript, css는 text/css |
 
+## 배포 파일의 취약점 주석과 전체 구성
+
+맞춤형 전체 구성본과 공개 플랫폼 패키지는 분할 정책 **38개 전체**를 제공합니다.
+각 정책 파일 상단에서 `[KISA WEB-xx]` 또는 `[추가 강화]` 분류와 함께 다음을 확인할 수 있습니다.
+- `[취약점]`: 해당 설정이 줄이는 정보 노출·불필요 메소드·권한/접근·자원 소진 등의 위험.
+- `[조치]`: 실제 지시문이 적용하는 동작.
+- `[별도 점검]`: 앱/OS/backend 또는 실제 운영 값에서 추가 확인할 부분.
+
+공개 패키지의 `conf/site.conf`는 고객사 도메인/인증서를 담지 않는 초기 비활성 구성입니다.
+주석이 있는 전체 사이트 원본은 `security/site-template.conf`에 별도로 포함합니다.
+이 원본은 운영 conf에서 자동으로 로드하지 않으며 실제 값을 채워 활성 site.conf를 준비합니다.
+템플릿을 그대로 include하거나 @@...@@ 토큰이 남은 파일을 운영 설정으로 사용하지 않습니다.
+
+맞춤형 전체 구성 ZIP에는 conf/policies 38개와 실제 site.conf·공통 conf·오류 HTML을 함께 넣습니다.
+이전 r10의 세 파일짜리 최소 업데이트 ZIP과 구분합니다. 기존 운영 도메인/경로/추가 CORS 설정은
+유지해 병합하고 같은 prefix/계정으로 nginx -t 후 reload합니다.
+
 ## 도메인은 맨 위 한 줄만
 
 각 사이트 구역의 첫 지시문 **server_name**에 실제 도메인을 한 번 입력합니다.
@@ -137,6 +154,7 @@ CSS style 속성/태그/동적 스타일을 허용하고 동일 사이트 js/mjs
 ## 배포와 검증
 
 운영 conf에는 nginx.conf·mime.types·site.conf와 기존 38개 분할 정책만 제공합니다.
+공개 배포 패키지에는 비활성 참고 원본 security/site-template.conf도 별도로 포함합니다.
 샘플·이전 구성·backend YAML·코드 프롬프트는 저장소/별도 참고 묶음에 두며 conf에 섞지 않습니다.
 공개 패키지의 초기 site.conf는 127.0.0.1:8080에서 요청을 거부하며 공개 포트를 열지 않습니다.
 Windows의 예약된 80포트도 초기 문법 검사에 사용하지 않습니다.

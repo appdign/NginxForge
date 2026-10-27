@@ -22,7 +22,7 @@ PROFILE_CHECKS=['profile:'+name for name in [
     'script-mapping','methods','request-size','proxy-fixed-destination','forwarded-headers','upstream-errors',
     'uploads-denied','session-cookie-flags','admin-acl','tls12','tls13','rate-limit','browser-policy',
     'cors-preflight','cors-rejection','cors-no-origin','api-no-store','management-denial','sourcemap-denial',
-    'cookie-scope','policy-toggle-syntax','policy-toggle-isolation']]
+    'cookie-scope','policy-toggle-syntax','policy-toggle-isolation','policy-annotation-coverage']]
 SPA_CHECKS=['spa:'+name for name in [
     'configuration','canonical-http','static-fallback','rest-routing','storage-routing','forwarded-headers',
     'cache-isolation','guard-precedence','websocket-tunnel','websocket-origin','policy-toggles','missing-index',
@@ -51,6 +51,14 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
               'Site values leaked into '+name)
     check(not (runtime/'backend').exists() and not (runtime/'prompts').exists(),'Reference examples leaked into runtime')
     done('profile:policy-layout')
+    for name in sorted(policies):
+        annotation=(runtime/'conf'/name).read_text(encoding='utf-8')
+        check(all(label in annotation for label in ['# [취약점]','# [조치]','# [별도 점검]']) and
+              ('# [KISA WEB-' in annotation or '# [추가 강화]' in annotation),'Missing security explanation: '+name)
+    reference=runtime/'security/site-template.conf'
+    check(reference.read_bytes()==(root/'config/site-template.conf').read_bytes(),'Annotated site template missing/changed in package')
+    check(set(re.findall(r'WEB-\d\d',reference.read_text(encoding='utf-8')))=={item['id'] for item in mapping['controls']},'Packaged template misses KISA control comments')
+    done('profile:policy-annotation-coverage')
     servers=[]
     for role in ['alpha','storage','beta']:
         server=FixtureServer(('127.0.0.1',0),RouteBackend);server.role=role

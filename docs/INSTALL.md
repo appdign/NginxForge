@@ -27,7 +27,8 @@ sudo /opt/nginxforge/sbin/nginx
 도메인은 맨 위 server_name 한 줄, 인증서/root·API·WS/backend·외부 허용 목록도 같은 파일에서
 설정합니다. 기존 38개 분할 정책의 include 줄 앞에 #을 붙여 해당 사이트에서 OFF합니다.
 conf/policies 전체와 오류 HTML을 함께 설치하고 nginx -t를 통과해야 합니다.
-생성용 템플릿과 backend/코드 참고 자료는 운영 conf에 포함하지 않습니다.
+주석 포함 사이트 원본은 security/site-template.conf에 있고 자동 로드하지 않습니다.
+38개 정책 파일에 취약점·조치·별도 점검 주석을 제공합니다. backend/코드 참고 자료는 운영 conf와 분리합니다.
 프로세스 사용자에게 로그·temp 디렉터리 권한을 부여하고,
 운영에서는 전용 비특권 사용자와 조직의 systemd/SELinux 정책을 적용하세요.
 root로 기동할 때의 기본 worker 계정은 두 Linux 배포판에 공통으로 존재하는 `daemon:daemon`입니다.

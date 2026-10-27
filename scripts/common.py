@@ -9,6 +9,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 SECURITY_DOCS = ['docs/SECURITY-CONFIG.md', 'docs/SECURITY-OWNERSHIP.md']
+SECURITY_REFERENCES = ['config/site-template.conf']
 PLATFORM_POLICY_SOURCE = 'config/runtime/policies/server/symlinks.conf'
 PLATFORM_POLICY_MARKER = b'# NGINXFORGE_PLATFORM_POLICY'
 
@@ -104,13 +105,15 @@ def asset_name(plan, target):
                                        'zip' if target.startswith('windows') else 'tar.gz')
 
 def packaged_policy_path(name):
+    if name == 'config/site-template.conf':
+        return 'security/site-template.conf'
     if name.startswith('config/runtime/'):
         return 'conf/' + name[len('config/runtime/'):]
     return name[len('docs/'):] if name.startswith('docs/') else name
 
 def release_inputs():
     paths = [p for p in (ROOT / 'config/runtime').rglob('*') if p.is_file()]
-    paths += [ROOT / name for name in SECURITY_DOCS] + [ROOT / 'security/kisa-2026.json']
+    paths += [ROOT / name for name in SECURITY_DOCS + SECURITY_REFERENCES] + [ROOT / 'security/kisa-2026.json']
     return {p.relative_to(ROOT).as_posix(): sha256(p) for p in sorted(paths)}
 
 def site_templates():
