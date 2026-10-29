@@ -138,9 +138,15 @@ def main():
                     '    ssl_certificate_key "'+(runtime_test/'conf/key.pem').as_posix()+'";',site,count=1)
         site=re.sub(r'(?m)^\s*root\s+.*?;',
                     '    root "'+(runtime_test/'html').as_posix()+'";',site,count=1)
+        http_test_port,https_test_port=free_port(),free_port()
+        while https_test_port==http_test_port:https_test_port=free_port()
+        site=site.replace('listen 80','listen 127.0.0.1:'+str(http_test_port))
+        site=site.replace('listen 443 ssl','listen 127.0.0.1:'+str(https_test_port)+' ssl')
         check(len(re.findall(r'(?m)^\s*ssl_certificate\s+',site))==1 and
               len(re.findall(r'(?m)^\s*ssl_certificate_key\s+',site))==1 and
-              len(re.findall(r'(?m)^\s*root\s+',site))==1,
+              len(re.findall(r'(?m)^\s*root\s+',site))==1 and
+              site.count('listen 127.0.0.1:'+str(http_test_port))==2 and
+              site.count('listen 127.0.0.1:'+str(https_test_port)+' ssl')==2,
               'Configured deployment paths could not be replaced safely')
         site_path.write_text(site,encoding='utf-8')
         runtime_prefix=runtime_test.as_posix()+'/'
