@@ -1,33 +1,37 @@
 # 완료 기준과 실제 검증 상태
-2026-10-29 검증 결과: **NGINX 1.30.6 / NginxForge r12 정식 발행 및 Latest 지정 완료**.
-첨부된 conf.zip의 실제 설정을 기본 배포 conf/nginx.conf, conf/mime.types, conf/site.conf에 반영했습니다.
-세 플랫폼 배포 패키지의 site.conf 해시는 모두 동일하며 첨부 설정의 기본 도메인과 PDF.js blob CSP를 포함합니다.
-정책 38개 분할 파일과 개별 include ON/OFF, KISA WEB-01~WEB-26 주석/대응표를 그대로 제공합니다.
+2026-10-29 검증 결과: **NGINX 1.30.6 / NginxForge r13 정식 발행 및 Latest 지정 완료**.
+첨부된 사이트 설정을 기본값으로 유지하면서 CSP에 frame-src self/blob 허용을 추가했습니다.
+blob PDF 프레임을 로드할 수 있고, 외부 사이트가 우리 사이트를 임베드하는 frame-ancestors 설정은 독립적으로 유지됩니다.
+프레임 로딩 허용은 교차 출처 프레임의 JavaScript/print 접근 권한을 부여하지 않습니다.
+정책 38개 분할 파일과 개별 include ON/OFF, KISA WEB-01~WEB-26 주석/대응표를 유지합니다.
 
 - [x] Linux AMD64/ARM64 musl 완전 정적 바이너리 빌드
 - [x] Ubuntu 22.04/24.04와 Rocky Linux 8/9에서 AMD64·ARM64 각각 실행
 - [x] Windows Server 2022 AMD64 바이너리 빌드 및 실행
 - [x] 환경당 111개, 9개 필수 환경 전체 **999개 실행 검사** 성공
-- [x] 단위 검사 30개 및 release 게이트 성공
+- [x] frame-src self/blob가 배포 설정과 실제 CSP 응답에 포함되는지 검사
 - [x] 세 바이너리, SHA256SUMS.txt, build-manifest.json 총 다섯 자산 자동 발행
-- [x] 정식 릴리즈 공개 상태(draft=false, prerelease=false, Latest) 및 다운로드 해시 재검증
-- [x] 세 플랫폼 아카이브의 conf/site.conf가 저장소의 기본 설정과 동일함을 확인
+- [x] 공개 Latest 릴리즈 및 다운로드 SHA-256SUMS 검증
+- [x] 세 플랫폼 패키지 site.conf 동일 SHA-256 확인: ade85529e555077016e5c03f814ef072526da1ed2035aed5c86654051a76a9b7
 
 | 증거 | 결과 |
 | --- | --- |
-| [전체 빌드·9개 환경 실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/40826886158) | AMD64/ARM64/Windows 성공·999개 검사 |
-| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r12) | 세 바이너리와 manifest/checksum, Latest |
-| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r12/build-manifest.json) | 입력 해시·의존성·툴체인·플랫폼별 9개 테스트 증거 |
-| [보안 설정 안내](SECURITY-CONFIG.md) | 사이트별 정책·KISA 주석·운영 주의사항 |
+| [전체 빌드·9개 환경 실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/40829165767) | AMD64/ARM64/Windows 성공·999개 검사 |
+| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r13) | 세 바이너리와 manifest/checksum, Latest |
+| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r13/build-manifest.json) | 입력 해시·의존성·툴체인·플랫폼별 9개 테스트 증거 |
+| [보안 설정 안내](SECURITY-CONFIG.md) | blob 프레임 CSP 및 사이트별 정책/운영 주의사항 |
 
-소스 revision: b8ee9b9ee126bda72a729ed311ff84cb96472d9b. NGINX 공식 commit: fb0e979c6dd63c018958b41eeb844947c5c21264.
+릴리즈 빌드 소스: c073648461604b25ac308b0e07c1e7cd7a7256ba. NGINX 공식 commit: fb0e979c6dd63c018958b41eeb844947c5c21264.
 의존성: headers-more 0.40, OpenSSL 3.5.9, PCRE2 10.49, zlib 1.3.2.
 
-사용자 지정 site.conf는 edoc-dev.sogang.ac.kr, *.sogang.ac.kr, Windows 인증서/웹루트 경로와 loopback 백엔드 주소를 기본값으로 가집니다. 인증서와 개인 키 파일 내용은 패키지에 포함하지 않습니다. Linux 서버에서 실행하기 전 Windows 경로를 해당 서버 경로로 변경해야 합니다. 배포는 GitHub Release 및 로컬 산출물이며 고객 운영 서버 설정을 원격 변경하지 않았습니다.
+사용자 지정 site.conf는 edoc-dev.sogang.ac.kr, *.sogang.ac.kr, Windows 인증서/웹루트 경로와 loopback backend 주소를 기본값으로 가집니다. 인증서와 개인 키 파일 내용은 패키지에 포함하지 않습니다. Linux에서 실행할 경우 Windows 경로를 바꿔야 합니다. GitHub Release에 배포했으며 운영 서버 설정은 원격 변경하지 않았습니다.
 
 전체 1 GiB는 요청 본문 상한이며 파일당 50 MiB·폼 5 MiB는 별도 Spring MVC/Tomcat 설정입니다. Linux 컨테이너는 native userspace를 검사하고 runner 커널을 공유합니다. 고객 서비스·부하·인증서·커널·NTFS 검증은 별도이며, KISA 대응 주석/표는 인증이나 자동 합격 판정이 아닙니다.
 
 ## 이전 릴리즈 기록
+
+r12은 [9개 환경·999개 검사 통과](https://github.com/appdign/NginxForge/actions/runs/40826886158) 후 발행한 이전 Latest 릴리즈입니다. r13에서 PDF.js blob 프레임의 CSP 허용과 배포 검증을 추가했습니다.
+
 
 r11은 [9개 환경·999개 검사 통과](https://github.com/appdign/NginxForge/actions/runs/40462605813) 후 발행한 이전 Latest 릴리즈이며, r12에서 사용자 제공 기본 사이트 설정을 반영하고 모든 필수 게이트를 다시 검증했습니다.
 
