@@ -1,58 +1,35 @@
 # 완료 기준과 실제 검증 상태
+2026-10-29 검증 결과: **NGINX 1.30.6 / NginxForge r12 정식 발행 및 Latest 지정 완료**.
+첨부된 conf.zip의 실제 설정을 기본 배포 conf/nginx.conf, conf/mime.types, conf/site.conf에 반영했습니다.
+세 플랫폼 배포 패키지의 site.conf 해시는 모두 동일하며 첨부 설정의 기본 도메인과 PDF.js blob CSP를 포함합니다.
+정책 38개 분할 파일과 개별 include ON/OFF, KISA WEB-01~WEB-26 주석/대응표를 그대로 제공합니다.
 
-2026-10-27 검증 결과: **NGINX 1.30.6 / NginxForge r11 정식 발행 및 Latest 지정 완료**.
-공개 배포와 맞춤형 전체 구성본에 정책 38개 전체를 포함하고 각 파일에 취약점/조치/별도 점검 주석을 보강했습니다.
-공개 패키지에도 주석 포함 사이트 원본을 security/site-template.conf로 제공하며 운영 conf에서 자동 로드하지 않습니다.
-site.conf의 site_embed_domain 한 줄로 iframe 부모 도메인/와일드카드를 지정합니다.
-CSP frame-ancestors와 X-Frame-Options가 자동으로 연동되며 운영 도메인은 정책/nginx.conf에
-반복 입력하지 않습니다. API 프록시 목적지·CORS·WebSocket·connect-src는 기존대로 유지합니다.
-분할 정책 38개와 개별 include ON/OFF를 보존하고 설정 옆에 KISA WEB-xx/추가 강화 주석을 넣었습니다.
-
-- [x] Linux AMD64/ARM64 native musl 완전 정적 빌드
-- [x] Ubuntu 22.04/24.04, Rocky Linux 8/9에서 AMD64/ARM64 각각 실행
-- [x] Windows Server 2022 AMD64 native 실행과 build 20348 확인
-- [x] 기존 엔진 40개와 패키지/사이트 71개, 환경당 111개 × 9 = **999개 실행 검사**
-- [x] 빈값/잘못된 iframe 옵션은 동일 출처만 허용하고 SAMEORIGIN 유지
-- [x] 유효한 iframe 도메인은 HTTP/HTTPS 부모의 모든 포트 허용 및 upstream XFO 충돌 제거
-- [x] iframe 옵션 변경 시 다른 가상호스트/API/CORS/WebSocket/connect-src 범위 유지
-- [x] 패키지 안 정책 38개 모두의 취약점/조치/별도 점검 주석 및 사이트 원본 포함 검사
-- [x] KISA WEB-01~WEB-26 주석 연결과 운영/앱 점검·추가 강화 구분
-- [x] 단위 검사 30개, actionlint 및 설정/문서 해시 검증
-- [x] 세 바이너리·9개 환경 전체 성공 후 다섯 자산 발행 및 Latest 지정
-- [x] 공개 파일 재다운로드·해시·manifest·OS별 정책 렌더링 재검증
-- [x] 발행 후 공식 업스트림 재조회 및 같은 릴리즈 중복 빌드/발행 생략
-
-로컬 Windows Chrome에서 별도 **15개 실제 iframe 시나리오**를 통과했습니다.
-HTTP/HTTPS 비표준 포트·중첩 하위 도메인·동일 출처는 허용하고 apex·악성 suffix·다른 회사·
-다른 가상호스트·허용되지 않은 상위 ancestor는 차단했습니다. 한 줄 도메인 교체/정확한 호스트/
-빈값 복원도 실행했습니다. iframe 허용 후에도 회사 부모의 브라우저 API CORS는 차단됐습니다.
-브라우저 증거는 사이트 템플릿과 frame-options.conf의 SHA-256으로 릴리즈 입력과 대조했습니다.
+- [x] Linux AMD64/ARM64 musl 완전 정적 바이너리 빌드
+- [x] Ubuntu 22.04/24.04와 Rocky Linux 8/9에서 AMD64·ARM64 각각 실행
+- [x] Windows Server 2022 AMD64 바이너리 빌드 및 실행
+- [x] 환경당 111개, 9개 필수 환경 전체 **999개 실행 검사** 성공
+- [x] 단위 검사 30개 및 release 게이트 성공
+- [x] 세 바이너리, SHA256SUMS.txt, build-manifest.json 총 다섯 자산 자동 발행
+- [x] 정식 릴리즈 공개 상태(draft=false, prerelease=false, Latest) 및 다운로드 해시 재검증
+- [x] 세 플랫폼 아카이브의 conf/site.conf가 저장소의 기본 설정과 동일함을 확인
 
 | 증거 | 결과 |
 | --- | --- |
-| [전체 빌드·실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/40462605813) | 세 바이너리·9개 환경·999개 검사 |
-| [발행 후 업스트림 재조회](https://github.com/appdign/NginxForge/actions/runs/40463760750) | 같은 r11의 중복 빌드/발행 생략 |
-| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r11) | 다섯 자산, draft=false, prerelease=false, Latest |
-| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r11/build-manifest.json) | 소스/의존성/옵션/툴체인·45개 배포 입력·사이트 템플릿·실행 증거 |
-| [보안 설정 안내](SECURITY-CONFIG.md) | 한 줄 iframe 옵션·KISA 주석·기존 API/CORS/WS와 독립성 |
+| [전체 빌드·9개 환경 실행·자동 발행](https://github.com/appdign/NginxForge/actions/runs/40826886158) | AMD64/ARM64/Windows 성공·999개 검사 |
+| [정식 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r12) | 세 바이너리와 manifest/checksum, Latest |
+| [검증 manifest](https://github.com/appdign/NginxForge/releases/download/v1.30.6-r12/build-manifest.json) | 입력 해시·의존성·툴체인·플랫폼별 9개 테스트 증거 |
+| [보안 설정 안내](SECURITY-CONFIG.md) | 사이트별 정책·KISA 주석·운영 주의사항 |
 
-빌드 소스: 264bcacca62758d3f49fcaf93c958ae6de2a3a90.
-NGINX 공식 commit: fb0e979c6dd63c018958b41eeb844947c5c21264.
+소스 revision: b8ee9b9ee126bda72a729ed311ff84cb96472d9b. NGINX 공식 commit: fb0e979c6dd63c018958b41eeb844947c5c21264.
 의존성: headers-more 0.40, OpenSSL 3.5.9, PCRE2 10.49, zlib 1.3.2.
-NGINX C 소스·핵심 패치·의존성 및 실제 설정 지시문은 r10과 동일하며 주석·배포 구성만 보강했습니다.
-운영 conf는 세 기반 파일과 분할 정책 38개, 총 41개이며 비활성 사이트 원본은 security 폴더로 분리합니다.
-맞춤형 전체 구성본은 conf 41개·오류 HTML·보안 안내/대응표·출처/라이선스를 포함하며 최소 업데이트와 구분합니다.
 
-iframe 허용은 세션 인증·인가·쿠키 정책을 바꾸지 않습니다. HTTP SAP 등의 임베드 로그인은
-SameSite=Lax와 브라우저 서드파티 쿠키 제한을 실제 환경에서 별도로 확인해야 합니다.
-브라우저 fixture는 실제 SAP·고객사 앱/세션/인증서 검증이 아닙니다. 운영 서버에는 자동 적용하지 않았습니다.
+사용자 지정 site.conf는 edoc-dev.sogang.ac.kr, *.sogang.ac.kr, Windows 인증서/웹루트 경로와 loopback 백엔드 주소를 기본값으로 가집니다. 인증서와 개인 키 파일 내용은 패키지에 포함하지 않습니다. Linux 서버에서 실행하기 전 Windows 경로를 해당 서버 경로로 변경해야 합니다. 배포는 GitHub Release 및 로컬 산출물이며 고객 운영 서버 설정을 원격 변경하지 않았습니다.
 
-전체 1 GiB는 요청 본문 상한이며 파일당 50 MiB·폼 5 MiB는 별도 Spring MVC/Tomcat 설정입니다.
-Linux 컨테이너는 native userspace를 검사하고 runner 커널을 공유합니다. Windows symlink는
-OS ACL/reparse point 검토가 필요하며 고객사 서비스·부하·인증서·커널·NTFS 검증은 별도입니다.
-KISA 대응 주석/표는 인증이나 자동 합격 판정이 아닙니다.
+전체 1 GiB는 요청 본문 상한이며 파일당 50 MiB·폼 5 MiB는 별도 Spring MVC/Tomcat 설정입니다. Linux 컨테이너는 native userspace를 검사하고 runner 커널을 공유합니다. 고객 서비스·부하·인증서·커널·NTFS 검증은 별도이며, KISA 대응 주석/표는 인증이나 자동 합격 판정이 아닙니다.
 
 ## 이전 릴리즈 기록
+
+r11은 [9개 환경·999개 검사 통과](https://github.com/appdign/NginxForge/actions/runs/40462605813) 후 발행한 이전 Latest 릴리즈이며, r12에서 사용자 제공 기본 사이트 설정을 반영하고 모든 필수 게이트를 다시 검증했습니다.
 
 r10은 [990개 실행 검사와 자동 발행](https://github.com/appdign/NginxForge/actions/runs/40454885270)을
 통과했습니다. [r10 릴리즈](https://github.com/appdign/NginxForge/releases/tag/v1.30.6-r10)는
