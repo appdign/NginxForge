@@ -22,8 +22,10 @@ sudo /opt/nginxforge/sbin/nginx
 ```
 
 기본 prefix는 `/opt/nginxforge`, 설정은 `conf/nginx.conf`입니다. `-p`와 `-c`로
-고정 경로를 명시할 수 있습니다. 공개 초기 site.conf는 127.0.0.1:8080에서 요청을
-거부합니다. [보안 설정 문서](SECURITY-CONFIG.md)에 따라 실제 site.conf를 준비합니다.
+고정 경로를 명시할 수 있습니다. 기본 site.conf는 제공된 edoc-dev Windows 사이트의
+도메인·인증서·웹 루트·backend 값으로 구성돼 있습니다. 인증서 파일 자체는 패키지에 포함하지
+않으므로 해당 인증서가 없거나 다른 사이트/OS에서 설치할 때는 시작 전에 site.conf의 값을
+수정해야 합니다. [보안 설정 문서](SECURITY-CONFIG.md)를 참고하세요.
 도메인은 맨 위 server_name 한 줄, 인증서/root·API·WS/backend·외부 허용 목록도 같은 파일에서
 설정합니다. 기존 38개 분할 정책의 include 줄 앞에 #을 붙여 해당 사이트에서 OFF합니다.
 conf/policies 전체와 오류 HTML을 함께 설치하고 nginx -t를 통과해야 합니다.

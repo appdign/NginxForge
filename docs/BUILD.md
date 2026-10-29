@@ -45,10 +45,11 @@ OpenSSL의 외부 모듈/DSO 로딩은 비활성화합니다.
 
 ## 보안 프로필과 실행 검사
 
-config/runtime의 공통 설정과 38개 분할 정책·초기 site.conf, 두 보안 운영 안내·비활성 사이트 원본과
+config/runtime의 공통 설정과 38개 분할 정책·기본 site.conf, 두 보안 운영 안내·사이트 원본과
 26개 항목 대응표를 공통 build plan의 release_inputs에서 SHA-256으로 고정합니다.
 config/site-template.conf는 security/site-template.conf로 함께 패키징하고 site_templates에서도 고정하여 테스트/배포가 다른 사이트
-템플릿을 사용하는 것을 막습니다. 실제 고객사 도메인은 소스/공개 패키지에 포함하지 않습니다.
+템플릿을 사용하는 것을 막습니다. 요청에 따라 기본 site.conf에는 edoc-dev 사이트 설정이 들어갑니다.
+공통 nginx.conf와 38개 정책 파일에는 도메인이나 backend가 들어가지 않습니다.
 symlinks.conf의 OS marker만 Linux native 차단과 Windows ACL 안내로 렌더링합니다.
 
 배포된 38개 정책의 취약점/조치/별도 점검 주석과 별도 사이트 원본의 KISA 항목을 검사합니다.
@@ -68,7 +69,7 @@ Linux는 실제 symlink 거부를 검사하고 Windows는 OS ACL 검토 필요 �
 ## 실행 검사와 릴리즈 게이트
 
 동일한 `tests/run-integration.py`가 9개 OS/CPU 조합에서 **패키지를 풀어 실제 배포 바이너리**로
-실행됩니다. 버전, 빌드 옵션, 유효/무효 설정, 공개 초기 설정, HTTP·HTTPS 서버, 정적 파일,
+실행됩니다. 버전, 빌드 옵션, 유효/무효 설정, 기본 사이트 설정의 fixture 경로 문법, HTTP·HTTPS 서버, 정적 파일,
 HEAD, 404·500, 프록시 성공·오류, Server 헤더 제거/변경, X-Powered-By 제거,
 gzip, rewrite, TLS 1.2/1.3와 HTTP/2 ALPN/SETTINGS를 검사합니다.
 테스트 인증서와 키는 loopback 전용 공개 fixture입니다.

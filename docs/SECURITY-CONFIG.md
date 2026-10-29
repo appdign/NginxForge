@@ -21,10 +21,12 @@
 - `[조치]`: 실제 지시문이 적용하는 동작.
 - `[별도 점검]`: 앱/OS/backend 또는 실제 운영 값에서 추가 확인할 부분.
 
-공개 패키지의 `conf/site.conf`는 고객사 도메인/인증서를 담지 않는 초기 비활성 구성입니다.
-주석이 있는 전체 사이트 원본은 `security/site-template.conf`에 별도로 포함합니다.
-이 원본은 운영 conf에서 자동으로 로드하지 않으며 실제 값을 채워 활성 site.conf를 준비합니다.
-템플릿을 그대로 include하거나 @@...@@ 토큰이 남은 파일을 운영 설정으로 사용하지 않습니다.
+요청에 따라 공개 패키지의 `conf/site.conf`는 제공된 edoc-dev 사이트의 기본 도메인·인증서
+경로·웹 루트·API/WS/backend·iframe·CSP 값으로 구성합니다. 인증서/키 파일은 포함하지 않으며,
+다른 서버나 OS에서는 기동 전에 경로와 도메인을 검토·수정해야 합니다. 공통 nginx.conf와
+분할 정책에는 사이트 도메인/backend를 넣지 않습니다.
+주석이 있는 범용 사이트 원본은 `security/site-template.conf`에 별도로 포함하고 운영 conf에서
+자동 로드하지 않습니다. `@@...@@` 토큰이 남은 원본은 그대로 운영 설정으로 사용하지 않습니다.
 
 맞춤형 전체 구성 ZIP에는 conf/policies 38개와 실제 site.conf·공통 conf·오류 HTML을 함께 넣습니다.
 이전 r10의 세 파일짜리 최소 업데이트 ZIP과 구분합니다. 기존 운영 도메인/경로/추가 CORS 설정은
@@ -148,19 +150,21 @@ IP 빈도는 초당 10r/s·burst 20, 동시 연결 기본 20이며 하루 접속
 WS read/send idle timeout은 3600초이며 총 연결 수명을 보장하지 않습니다.
 
 CSS style 속성/태그/동적 스타일을 허용하고 동일 사이트 js/mjs는 정상 MIME으로 응답합니다.
-인라인 JavaScript·onclick·eval은 계속 차단합니다. 외부 CDN은 site_csp의 해당 src에서
+PDF.js가 쓰는 blob 이미지와 connect-src blob 데이터, WebAssembly 디코더를 허용합니다.
+`wasm-unsafe-eval`은 WebAssembly만 허용하며 인라인 JavaScript·onclick·일반 eval은 계속 차단합니다.
+외부 CDN은 site_csp의 해당 src에서
 선택합니다. 더 엄격한 CSS 정책은 앱의 nonce/hash 연동이 필요하며 고정 nonce는 사용하지 않습니다.
 
 ## 배포와 검증
 
 운영 conf에는 nginx.conf·mime.types·site.conf와 기존 38개 분할 정책만 제공합니다.
-공개 배포 패키지에는 비활성 참고 원본 security/site-template.conf도 별도로 포함합니다.
+공개 배포 패키지에는 범용 참고 원본 security/site-template.conf도 별도로 포함합니다.
 샘플·이전 구성·backend YAML·코드 프롬프트는 저장소/별도 참고 묶음에 두며 conf에 섞지 않습니다.
-공개 패키지의 초기 site.conf는 127.0.0.1:8080에서 요청을 거부하며 공개 포트를 열지 않습니다.
-Windows의 예약된 80포트도 초기 문법 검사에 사용하지 않습니다.
-실제 값으로 치환한 site.conf를 설치해야 서비스합니다. 생성용 원본은
+기본 site.conf는 edoc-dev 대상이며 실제 인증서와 키 파일은 제공하지 않습니다. Windows용
+인증서·root 경로가 포함되므로 Linux에서 사용하려면 Linux 경로로 변경해야 합니다.
+운영 환경에서 같은 설정을 적용할 때 생성용 원본은
 [site-template.conf](https://github.com/appdign/NginxForge/blob/main/config/site-template.conf)입니다.
-@@...@@ 토큰을 그대로 운영에 설치하지 않습니다.
+템플릿의 `@@...@@` 토큰을 그대로 운영에 설치하지 않습니다.
 
 기존 설치 전환 시 설정을 백업한 뒤 동일 OS 패키지의 conf와 html/__nginxforge_error.html을
 함께 설치하고 실제 적용본 site.conf를 사용합니다. 이전 conf.d/map이나 정책을 중복 include하지

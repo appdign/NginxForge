@@ -217,7 +217,7 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                 done('spa:canonical-http')
                 status,headers,data=request('alpha.test','/documents/123');check(status==200 and data==b'SPA alpha.test\n','SPA fallback failed');done('spa:static-fallback')
                 status,headers,data=request('alpha.test','/app.css');check(status==200 and data.startswith(b'.forge') and headers.get_content_type()=='text/css' and headers['X-Content-Type-Options']=='nosniff','CSS failed');done('spa:stylesheet-assets')
-                csp=headers.get_all('Content-Security-Policy');check(len(csp)==1 and "style-src 'self' 'unsafe-inline'" in csp[0] and "script-src 'self';" in csp[0],'CSP boundaries failed');done('spa:style-policy');done('profile:browser-policy')
+                csp=headers.get_all('Content-Security-Policy');check(len(csp)==1 and "style-src 'self' 'unsafe-inline'" in csp[0] and "script-src 'self' 'wasm-unsafe-eval';" in csp[0] and csp[0].count('script-src')==1 and "img-src 'self' blob:;" in csp[0] and "connect-src 'self' blob: wss://alpha.test:" in csp[0],'CSP boundaries failed');done('spa:style-policy');done('profile:browser-policy')
                 status,headers,data=request('alpha.test','/app.mjs');check(status==200 and b'MODULE READY' in data and headers.get_content_type()=='application/javascript','Module MIME failed');done('spa:javascript-module-assets')
                 for host,role in [('alpha.test','alpha'),('beta.test','beta')]:
                     status,headers,data=request(host,'/api/items?x=1');seen=json.loads(data.decode());check(status==200 and seen['role']==role and seen['path']=='/api/items?x=1','Wrong backend')
@@ -324,7 +324,7 @@ def run_site_profiles(binary,runtime,metadata,target,root,check,done):
                 for path in ['/app.css','/api/items']:
                     status,headers,data=request('alpha.test',path)
                     check(status==200 and headers.get_all('X-Frame-Options') is None and len(headers.get_all('Content-Security-Policy'))==1 and "frame-ancestors 'self' http://*.trusted.test:* https://*.trusted.test:*;" in headers['Content-Security-Policy'],'One-line embedding policy/header mismatch')
-                    check('connect-src \'self\' wss://alpha.test:'+str(https_port)+';' in headers['Content-Security-Policy'],'Embedding option expanded outbound API/WS sources')
+                    check('connect-src \'self\' blob: wss://alpha.test:'+str(https_port)+';' in headers['Content-Security-Policy'],'Embedding option expanded outbound API/WS sources')
                 done('site:embed-wildcard')
                 status,headers,data=request('beta.test','/app.css')
                 check(status==200 and "frame-ancestors 'self';" in headers['Content-Security-Policy'] and headers.get_all('X-Frame-Options')==['SAMEORIGIN'],'Embedding option crossed virtual hosts');done('site:embed-isolation')

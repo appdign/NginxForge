@@ -106,8 +106,44 @@ def main():
     for required in ['--with-http_ssl_module', '--with-http_v2_module', '--with-pcre-jit', '--add-module=../headers-more']:
         check(required in options, 'Missing build option ' + required)
     done('build-options')
-    runtime_prefix = (ROOT / 'build/runtime').resolve().as_posix() + '/'
-    execute(binary, '-p', runtime_prefix, '-c', 'conf/nginx.conf', '-t')
+    # The distributed site.conf is a ready-to-personalize Windows deployment profile whose
+    # certificate/root paths belong to the operator. Validate its complete policy wiring
+    # with disposable fixture paths; never read customer certificates or bind production ports.
+    packaged_conf=ROOT/'build/runtime/conf'
+    packaged_site=(packaged_conf/'site.conf').read_text(encoding='utf-8')
+    packaged_mime=(packaged_conf/'mime.types').read_text(encoding='utf-8')
+    check('server_name edoc-dev.sogang.ac.kr;' in packaged_site and
+          'set $site_embed_domain "*.sogang.ac.kr";' in packaged_site,
+          'Requested default site/iframe values missing')
+    check(packaged_site.count('script-src')==1 and
+          "img-src 'self' blob:;" in packaged_site and
+          "script-src 'self' 'wasm-unsafe-eval';" in packaged_site and
+          "connect-src 'self' blob: wss://$host$site_origin_port;" in packaged_site,
+          'Default CSP values are missing or duplicated')
+    check('application/javascript js mjs;' in packaged_mime,
+          'MJS module MIME mapping missing from the default package')
+    with tempfile.TemporaryDirectory(prefix='nginxforge-runtime-config-') as temp:
+        runtime_test=Path(temp).resolve()
+        shutil.copytree(str(ROOT/'build/runtime/conf'),str(runtime_test/'conf'))
+        shutil.copytree(str(ROOT/'build/runtime/html'),str(runtime_test/'html'))
+        for directory in ['logs','temp']:(runtime_test/directory).mkdir()
+        shutil.copy2(str(ROOT/'tests/fixtures/cert.pem'),str(runtime_test/'conf/cert.pem'))
+        shutil.copy2(str(ROOT/'tests/fixtures/key.pem'),str(runtime_test/'conf/key.pem'))
+        site_path=runtime_test/'conf/site.conf'
+        site=site_path.read_text(encoding='utf-8')
+        site=re.sub(r'(?m)^\s*ssl_certificate\s+.*?;',
+                    '    ssl_certificate "'+(runtime_test/'conf/cert.pem').as_posix()+'";',site,count=1)
+        site=re.sub(r'(?m)^\s*ssl_certificate_key\s+.*?;',
+                    '    ssl_certificate_key "'+(runtime_test/'conf/key.pem').as_posix()+'";',site,count=1)
+        site=re.sub(r'(?m)^\s*root\s+.*?;',
+                    '    root "'+(runtime_test/'html').as_posix()+'";',site,count=1)
+        check(len(re.findall(r'(?m)^\s*ssl_certificate\s+',site))==1 and
+              len(re.findall(r'(?m)^\s*ssl_certificate_key\s+',site))==1 and
+              len(re.findall(r'(?m)^\s*root\s+',site))==1,
+              'Configured deployment paths could not be replaced safely')
+        site_path.write_text(site,encoding='utf-8')
+        runtime_prefix=runtime_test.as_posix()+'/'
+        execute(binary,'-p',runtime_prefix,'-c','conf/nginx.conf','-t')
     done('runtime-config')
     backend = HTTPServer(('127.0.0.1', 0), Backend)
     thread = threading.Thread(target=backend.serve_forever, daemon=True)
