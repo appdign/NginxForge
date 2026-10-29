@@ -117,6 +117,7 @@ def main():
           'set $site_embed_domain "*.sogang.ac.kr";' in packaged_site,
           'Requested default site/iframe values missing')
     check(packaged_site.count('script-src')==1 and
+          "frame-src 'self' blob:;" in packaged_site and
           "img-src 'self' blob:;" in packaged_site and
           "script-src 'self' 'wasm-unsafe-eval';" in packaged_site and
           "connect-src 'self' blob: wss://$host$site_origin_port;" in packaged_site,

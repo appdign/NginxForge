@@ -150,7 +150,8 @@ IP 빈도는 초당 10r/s·burst 20, 동시 연결 기본 20이며 하루 접속
 WS read/send idle timeout은 3600초이며 총 연결 수명을 보장하지 않습니다.
 
 CSS style 속성/태그/동적 스타일을 허용하고 동일 사이트 js/mjs는 정상 MIME으로 응답합니다.
-PDF.js가 쓰는 blob 이미지와 connect-src blob 데이터, WebAssembly 디코더를 허용합니다.
+PDF.js가 쓰는 blob 프레임·이미지·connect 데이터와 WebAssembly 디코더를 허용합니다.
+blob 문서를 iframe으로 표시하려면 CSP의 frame-src에도 blob:을 명시해야 합니다.
 `wasm-unsafe-eval`은 WebAssembly만 허용하며 인라인 JavaScript·onclick·일반 eval은 계속 차단합니다.
 외부 CDN은 site_csp의 해당 src에서
 선택합니다. 더 엄격한 CSS 정책은 앱의 nonce/hash 연동이 필요하며 고정 nonce는 사용하지 않습니다.
