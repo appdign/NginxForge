@@ -153,12 +153,17 @@ def main():
         while https_test_port==http_test_port:https_test_port=free_port()
         site=site.replace('listen 80','listen 127.0.0.1:'+str(http_test_port))
         site=site.replace('listen 443 ssl','listen 127.0.0.1:'+str(https_test_port)+' ssl')
-        check(len(re.findall(r'(?m)^\s*ssl_certificate\s+',site))==1 and
-              len(re.findall(r'(?m)^\s*ssl_certificate_key\s+',site))==1 and
-              len(re.findall(r'(?m)^\s*root\s+',site))==1 and
-              site.count('listen 127.0.0.1:'+str(http_test_port))==2 and
-              site.count('listen 127.0.0.1:'+str(https_test_port)+' ssl')==2,
-              'Configured deployment paths could not be replaced safely')
+        expected_values={
+            'certificate': 'ssl_certificate "'+(runtime_test/'conf/cert.pem').as_posix()+'";',
+            'key': 'ssl_certificate_key "'+(runtime_test/'conf/key.pem').as_posix()+'";',
+            'root': 'root "'+(runtime_test/'html').as_posix()+'";',
+            'http_site_listener': 'listen 127.0.0.1:'+str(http_test_port)+';',
+            'http_default_listener': 'listen 127.0.0.1:'+str(http_test_port)+' default_server;',
+            'https_site_listener': 'listen 127.0.0.1:'+str(https_test_port)+' ssl;',
+            'https_default_listener': 'listen 127.0.0.1:'+str(https_test_port)+' ssl default_server;'}
+        replacement_counts={name:site.count(value) for name,value in expected_values.items()}
+        check(all(count==1 for count in replacement_counts.values()),
+              'Configured deployment paths could not be replaced safely: '+repr(replacement_counts))
         site_path.write_text(site,encoding='utf-8')
         runtime_prefix=runtime_test.as_posix()+'/'
         execute(binary,'-p',runtime_prefix,'-c','conf/nginx.conf','-t')
