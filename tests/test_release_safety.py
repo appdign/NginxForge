@@ -147,6 +147,12 @@ class SourceSafety(unittest.TestCase):
             opened.assert_called_once()
             sleep.assert_not_called()
 
+    def test_github_release_asset_api_requests_archive_bytes(self):
+        url='https://api.github.com/repos/PCRE2Project/pcre2/releases/assets/595404214'
+        with patch('urllib.request.urlopen',return_value=io.BytesIO(b'archive')) as opened:
+            self.assertEqual(download(url),b'archive')
+        self.assertEqual(opened.call_args[0][0].get_header('Accept'),'application/octet-stream')
+
     def test_platform_policy_is_required_and_os_specific(self):
         source=(ROOT/PLATFORM_POLICY_SOURCE).read_bytes()
         linux=render_platform_policy(source,'linux-arm64')

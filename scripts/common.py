@@ -47,7 +47,13 @@ def canonical_digest(value):
 def download(url):
     if not url.startswith('https://'):
         raise ValueError('HTTPS is required: ' + url)
-    req = urllib.request.Request(url, headers={'User-Agent': 'NginxForge-builder/1'})
+    headers = {'User-Agent': 'NginxForge-builder/1'}
+    if url.startswith('https://api.github.com/repos/') and '/releases/assets/' in url:
+        headers['Accept'] = 'application/octet-stream'
+        token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
+        if token:
+            headers['Authorization'] = 'Bearer ' + token
+    req = urllib.request.Request(url, headers=headers)
     retryable_status = {408, 425, 429, 500, 502, 503, 504}
     attempts = 8
     for attempt in range(attempts):
