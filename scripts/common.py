@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import time
 import urllib.error
 import urllib.request
 
@@ -47,8 +48,22 @@ def download(url):
     if not url.startswith('https://'):
         raise ValueError('HTTPS is required: ' + url)
     req = urllib.request.Request(url, headers={'User-Agent': 'NginxForge-builder/1'})
-    with urllib.request.urlopen(req, timeout=120) as response:
-        return response.read()
+    retryable_status = {408, 425, 429, 500, 502, 503, 504}
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if error.code not in retryable_status or attempt == 4:
+                raise
+            retry_after = error.headers.get('Retry-After', '') if error.headers else ''
+            delay = min(int(retry_after), 30) if retry_after.isdigit() else min(2 ** attempt, 16)
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if attempt == 4:
+                raise
+            delay = min(2 ** attempt, 16)
+        time.sleep(delay)
+    raise RuntimeError('Unreachable download retry state')
 
 def github(path, missing_ok=False):
     headers = {'Accept': 'application/vnd.github+json', 'User-Agent': 'NginxForge-builder/1',

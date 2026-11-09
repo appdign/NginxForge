@@ -155,7 +155,7 @@ def main():
         site=site.replace('listen 443 ssl','listen 127.0.0.1:'+str(https_test_port)+' ssl')
         check(len(re.findall(r'(?m)^\s*ssl_certificate\s+',site))==1 and
               len(re.findall(r'(?m)^\s*ssl_certificate_key\s+',site))==1 and
-              len(re.findall(r'(?m)^\s*root\s+',site))==1 and
+              len(re.findall(r'(?m)^\s*root\s+',site))==3 and
               site.count('listen 127.0.0.1:'+str(http_test_port))==2 and
               site.count('listen 127.0.0.1:'+str(https_test_port)+' ssl')==2,
               'Configured deployment paths could not be replaced safely')

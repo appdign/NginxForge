@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from common import PLATFORM_POLICY_SOURCE, canonical_digest, find_release, github, load, packaged_policy_path, render_platform_policy, release_inputs, site_templates, sha256, write, asset_name, verify_plan
+from common import PLATFORM_POLICY_SOURCE, canonical_digest, download, find_release, github, load, packaged_policy_path, render_platform_policy, release_inputs, site_templates, sha256, write, asset_name, verify_plan
 
 def module(name):
     spec = importlib.util.spec_from_file_location(name.replace('-', '_'), str(ROOT / 'scripts' / (name + '.py')))
@@ -130,6 +130,23 @@ class UpstreamSafety(unittest.TestCase):
             with self.assertRaises(RuntimeError): find_release('example/repo','target')
 
 class SourceSafety(unittest.TestCase):
+    def test_download_retries_transient_gateway_failure(self):
+        failure = urllib.error.HTTPError('https://example.org/source.tar.gz', 504, 'gateway timeout', {}, None)
+        with patch('urllib.request.urlopen', side_effect=[failure, io.BytesIO(b'archive')]) as opened, \
+             patch('common.time.sleep') as sleep:
+            self.assertEqual(download('https://example.org/source.tar.gz'), b'archive')
+            self.assertEqual(opened.call_count, 2)
+            sleep.assert_called_once_with(1)
+
+    def test_download_does_not_retry_permanent_client_error(self):
+        failure = urllib.error.HTTPError('https://example.org/source.tar.gz', 404, 'missing', {}, None)
+        with patch('urllib.request.urlopen', side_effect=failure) as opened, \
+             patch('common.time.sleep') as sleep:
+            with self.assertRaises(urllib.error.HTTPError):
+                download('https://example.org/source.tar.gz')
+            opened.assert_called_once()
+            sleep.assert_not_called()
+
     def test_platform_policy_is_required_and_os_specific(self):
         source=(ROOT/PLATFORM_POLICY_SOURCE).read_bytes()
         linux=render_platform_policy(source,'linux-arm64')
