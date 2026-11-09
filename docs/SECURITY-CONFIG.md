@@ -208,7 +208,7 @@ PDF SHA-256: 44fe393981b244147be6af7423d99dc15633c089fad0bcb296cbe2371dde812d.
 | WEB-13 | 설정 노출 | 설정 확장자·경로 요청 차단을 추가 보완으로 제공 | 가이드 직접 대상은 Tomcat/IIS/JEUS |
 | WEB-14 | 파일 접근 | 숨김/비밀 경로 차단, 관리자 IP 제한 예시 | 업무별 인증·인가, OS 파일 권한 |
 | WEB-15 | 스크립트 매핑 | script/FastCGI 실행 미구성·확장자 차단 보완 | 가이드 직접 대상은 Tomcat/IIS/JEUS |
-| WEB-16 | 헤더 정보 | 기존 headers-more 정적 모듈, 버전/Server 제거 | 앱 자체 본문·추가 vhost 설정 |
+| WEB-16 | 헤더 정보 | http 범위 server_tokens off/Server 제거 + 사이트별 backend 식별 헤더 제거 | 앱 자체 본문·추가 vhost 설정 |
 | WEB-17 | 가상 디렉터리 | 예시에서 alias/불필요한 가상 디렉터리 미사용 | 기존 alias와 앱 라우팅 목록 검토 |
 | WEB-18 | WebDAV | DAV 모듈 미포함, 불필요 메소드 차단 | backend의 DAV endpoint |
 | WEB-19 | SSI | ssi off, SSI 확장자 차단 | 다른 vhost의 SSI override |
@@ -223,6 +223,7 @@ PDF SHA-256: 44fe393981b244147be6af7423d99dc15633c089fad0bcb296cbe2371dde812d.
 ## 추가 모듈 판단
 
 헤더 제거/변경은 이미 세 플랫폼에서 검증된 headers-more를 계속 정적으로 포함합니다.
+잘못된 프로토콜 요청처럼 가상호스트 선택 전에 생성된 오류도 있어 Server 버전 제거는 http 범위에서 먼저 적용합니다.
 나머지 서버 설정은 NGINX Open Source 기본 모듈로 구현할 수 있습니다. 비밀번호 정책,
 파일시스템 ACL, 다운로드 총량, LDAP backend 정책을 해결한다는 이유로 WAF를 추가하지 않습니다.
 ModSecurity/CRS나 NAXSI 등 별도 WAF는 이 항목들의 운영 조치를 대체하지 않으며,

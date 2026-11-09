@@ -70,7 +70,7 @@ Linux는 실제 symlink 거부를 검사하고 Windows는 OS ACL 검토 필요 �
 
 동일한 `tests/run-integration.py`가 9개 OS/CPU 조합에서 **패키지를 풀어 실제 배포 바이너리**로
 실행됩니다. 버전, 빌드 옵션, 유효/무효 설정, 기본 사이트 설정의 fixture 경로 문법, HTTP·HTTPS 서버, 정적 파일,
-HEAD, 404·500, 프록시 성공·오류, Server 헤더 제거/변경, X-Powered-By 제거,
+HEAD, 404·500, 프록시 성공·오류, Server 헤더 제거/변경, TLS 포트 평문 요청의 오류 헤더 제거, X-Powered-By 제거,
 gzip, rewrite, TLS 1.2/1.3와 HTTP/2 ALPN/SETTINGS를 검사합니다.
 테스트 인증서와 키는 loopback 전용 공개 fixture입니다.
 

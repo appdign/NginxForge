@@ -111,8 +111,13 @@ def main():
     # certificate/root paths belong to the operator. Validate its complete policy wiring
     # with disposable fixture paths; never read customer certificates or bind production ports.
     packaged_conf=ROOT/'build/runtime/conf'
+    packaged_nginx=(packaged_conf/'nginx.conf').read_text(encoding='utf-8')
     packaged_site=(packaged_conf/'site.conf').read_text(encoding='utf-8')
     packaged_mime=(packaged_conf/'mime.types').read_text(encoding='utf-8')
+    check('server_tokens off;' in packaged_nginx and 'more_clear_headers Server;' in packaged_nginx,
+          'HTTP-scope server identity protection missing from common nginx.conf')
+    check(packaged_site.count('more_clear_headers Server;')>=2 and packaged_site.count('server_tokens off;')>=2,
+          'Default listeners do not suppress server identity')
     check('server_name edoc-dev.sogang.ac.kr;' in packaged_site and
           'set $site_embed_domain "*.sogang.ac.kr";' in packaged_site,
           'Requested default site/iframe values missing')
@@ -260,6 +265,19 @@ http {
                             check(body == data, 'Static/rewrite response mismatch')
                         connection.close()
                         done(protocol + ':' + mode + ':' + operation)
+            with socket.create_connection(('127.0.0.1', https_port), timeout=10) as raw:
+                raw.sendall(b'GET / HTTP/1.1\r\nHost: clear.test\r\nConnection: close\r\n\r\n')
+                chunks=[]
+                while True:
+                    chunk=raw.recv(4096)
+                    if not chunk: break
+                    chunks.append(chunk)
+            malformed=b''.join(chunks)
+            response_headers=malformed.split(b'\r\n\r\n',1)[0]
+            check(b'400 Bad Request' in response_headers and
+                  not any(line.lower().startswith(b'server:') for line in response_headers.split(b'\r\n')),
+                  'Plain HTTP sent to TLS port exposed server identity: '+repr(response_headers))
+            done('http-to-tls-server-header-hidden')
             for version in ['TLSv1.2', 'TLSv1.3']:
                 context = ssl._create_unverified_context()
                 if version == 'TLSv1.2':
