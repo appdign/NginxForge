@@ -29,7 +29,8 @@ unpack_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(unpack_module)
 
 REQUIRED_CHECKS = ['version', 'build-options', 'configuration', 'invalid-configuration',
-                   'http2', 'tls12', 'tls13', 'runtime-config'] + [
+                   'http2', 'tls12', 'tls13', 'runtime-config',
+                   'http-to-tls-server-header-hidden'] + [
     protocol + ':' + mode + ':' + operation
     for protocol in ['http', 'https'] for mode in ['clear', 'custom']
     for operation in ['static', 'head', '404', '500', 'proxy', 'proxy-error', 'gzip', 'rewrite']]
