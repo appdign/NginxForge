@@ -49,19 +49,22 @@ def download(url):
         raise ValueError('HTTPS is required: ' + url)
     req = urllib.request.Request(url, headers={'User-Agent': 'NginxForge-builder/1'})
     retryable_status = {408, 425, 429, 500, 502, 503, 504}
-    for attempt in range(5):
+    attempts = 8
+    for attempt in range(attempts):
         try:
             with urllib.request.urlopen(req, timeout=120) as response:
                 return response.read()
         except urllib.error.HTTPError as error:
-            if error.code not in retryable_status or attempt == 4:
+            if error.code not in retryable_status or attempt == attempts - 1:
                 raise
             retry_after = error.headers.get('Retry-After', '') if error.headers else ''
             delay = min(int(retry_after), 30) if retry_after.isdigit() else min(2 ** attempt, 16)
-        except (urllib.error.URLError, TimeoutError, ConnectionError):
-            if attempt == 4:
+            print('Transient HTTP %s downloading %s; retrying in %ss' % (error.code, url, delay), flush=True)
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            if attempt == attempts - 1:
                 raise
             delay = min(2 ** attempt, 16)
+            print('Transient network error downloading %s: %s; retrying in %ss' % (url, error, delay), flush=True)
         time.sleep(delay)
     raise RuntimeError('Unreachable download retry state')
 
