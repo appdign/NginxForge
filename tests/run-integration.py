@@ -117,11 +117,15 @@ def main():
     packaged_mime=(packaged_conf/'mime.types').read_text(encoding='utf-8')
     check('server_tokens off;' in packaged_nginx and 'more_clear_headers Server;' in packaged_nginx,
           'HTTP-scope server identity protection missing from common nginx.conf')
+    check('error_page 400 403 404 405 413 414 429 500 502 503 504 /__nginxforge_error.html;' in packaged_nginx,
+          'Default HTTP-scope custom error page missing from nginx.conf')
     check(packaged_site.count('more_clear_headers Server;')>=2 and packaged_site.count('server_tokens off;')>=2,
           'Default listeners do not suppress server identity')
-    check('server_name edoc-dev.sogang.ac.kr;' in packaged_site and
-          'set $site_embed_domain "*.sogang.ac.kr";' in packaged_site,
-          'Requested default site/iframe values missing')
+    check(packaged_site.count('location = /__nginxforge_error.html { internal; root html; }')>=2,
+          'Default listeners cannot serve the internal custom error page')
+    check('server_name example.com;' in packaged_site and
+          'set $site_embed_domain "";' in packaged_site,
+          'Generic default site/iframe values missing')
     check(packaged_site.count('script-src')==1 and
           "frame-src 'self' blob:;" in packaged_site and
           "img-src 'self' blob:;" in packaged_site and
@@ -169,6 +173,7 @@ def main():
             (base / directory).mkdir()
         data = ('NginxForge static fixture. ' * 1024).encode()
         (base / 'html/data.txt').write_bytes(data)
+        (base / 'html/__nginxforge_error.html').write_text('Generic error fixture',encoding='utf-8')
         shutil.copy2(str(ROOT / 'tests/fixtures/cert.pem'), str(base / 'conf/cert.pem'))
         shutil.copy2(str(ROOT / 'tests/fixtures/key.pem'), str(base / 'conf/key.pem'))
         http_port, https_port = free_port(), free_port()
@@ -190,6 +195,7 @@ http {
     ssl_certificate cert.pem;
     ssl_certificate_key key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+    error_page 400 403 404 405 413 414 429 500 502 503 504 /__nginxforge_error.html;
 '''
         for mode in ['clear', 'custom']:
             config += '''server {
@@ -197,6 +203,7 @@ http {
     listen 127.0.0.1:%d ssl;
     http2 on;
     server_name %s.test;
+    location = /__nginxforge_error.html { internal; root html; }
     %s
     more_set_headers 'X-Forge: yes';
     more_clear_headers X-Powered-By;
@@ -278,6 +285,8 @@ http {
             check(b'400 Bad Request' in response_headers and
                   not any(line.lower().startswith(b'server:') for line in response_headers.split(b'\r\n')),
                   'Plain HTTP sent to TLS port exposed server identity: '+repr(response_headers))
+            check(b'Generic error fixture' in malformed,
+                  'Parser error did not use the default custom error page: '+repr(malformed))
             done('http-to-tls-server-header-hidden')
             for version in ['TLSv1.2', 'TLSv1.3']:
                 context = ssl._create_unverified_context()

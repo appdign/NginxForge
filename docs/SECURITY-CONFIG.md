@@ -21,9 +21,9 @@
 - `[조치]`: 실제 지시문이 적용하는 동작.
 - `[별도 점검]`: 앱/OS/backend 또는 실제 운영 값에서 추가 확인할 부분.
 
-요청에 따라 공개 패키지의 `conf/site.conf`는 제공된 edoc-dev 사이트의 기본 도메인·인증서
-경로·웹 루트·API/WS/backend·iframe·CSP 값으로 구성합니다. 인증서/키 파일은 포함하지 않으며,
-다른 서버나 OS에서는 기동 전에 경로와 도메인을 검토·수정해야 합니다. 공통 nginx.conf와
+공개 패키지의 `conf/site.conf`는 `example.com`과 예시 경로를 사용하며 API/WS/backend·iframe·CSP
+값은 범용 기본값입니다. 인증서/키 파일은 포함하지 않으며, 실제 서버나 OS에 맞게 기동 전에
+경로와 도메인을 수정해야 합니다. 공통 nginx.conf와
 분할 정책에는 사이트 도메인/backend를 넣지 않습니다.
 주석이 있는 범용 사이트 원본은 `security/site-template.conf`에 별도로 포함하고 운영 conf에서
 자동 로드하지 않습니다. `@@...@@` 토큰이 남은 원본은 그대로 운영 설정으로 사용하지 않습니다.
@@ -132,7 +132,10 @@ NGINX 기본값/상위 설정/backend 정책이나 브라우저에 이미 남은
 헤더가 통과할 수 있습니다. CORS 헤더 include와 site.conf의 요청 Origin 검사도 별개입니다.
 API/WS 허용 범위는 해당 사이트의 모드/목록으로 조정합니다.
 
-고정 헤더·파일/관리 경로 차단·symlink·캐시·오류 페이지는 분할 정책에서 제공하고,
+오류 응답 경로의 공통 기본값은 `nginx.conf`의 `http {}`에 지정하며, 오류 문서의 내부 location은
+사이트별 `generic-errors.conf`와 기본 listener에서 제공합니다. 사이트별 정책의 include를 끄더라도
+공통 error_page 매핑은 남으므로 이를 바꾸려면 해당 server에서 별도로 재정의해야 합니다.
+기타 고정 헤더·파일/관리 경로 차단·symlink·캐시는 분할 정책에서 제공하고,
 경로/backend/허용 출처/쿠키·업무 제한·메소드는 site.conf에서 직접 선택합니다.
 기존 body-size/upload-body-size, timeout/rate/connection/cookie/proxy 정책 파일도 보존합니다.
 필요하면 사이트의 같은 지시문 대신 그 기본값 include를 선택하되 중복 선언하지 않습니다.
@@ -161,8 +164,8 @@ blob 문서를 iframe으로 표시하려면 CSP의 frame-src에도 blob:을 명�
 운영 conf에는 nginx.conf·mime.types·site.conf와 기존 38개 분할 정책만 제공합니다.
 공개 배포 패키지에는 범용 참고 원본 security/site-template.conf도 별도로 포함합니다.
 샘플·이전 구성·backend YAML·코드 프롬프트는 저장소/별도 참고 묶음에 두며 conf에 섞지 않습니다.
-기본 site.conf는 edoc-dev 대상이며 실제 인증서와 키 파일은 제공하지 않습니다. Windows용
-인증서·root 경로가 포함되므로 Linux에서 사용하려면 Linux 경로로 변경해야 합니다.
+기본 site.conf는 예시 도메인과 Windows 경로를 사용하며 실제 인증서와 키 파일은 제공하지 않습니다.
+Linux에서 사용하려면 Linux 경로로 변경해야 합니다.
 운영 환경에서 같은 설정을 적용할 때 생성용 원본은
 [site-template.conf](https://github.com/appdign/NginxForge/blob/main/config/site-template.conf)입니다.
 템플릿의 `@@...@@` 토큰을 그대로 운영에 설치하지 않습니다.

@@ -48,7 +48,7 @@ OpenSSL의 외부 모듈/DSO 로딩은 비활성화합니다.
 config/runtime의 공통 설정과 38개 분할 정책·기본 site.conf, 두 보안 운영 안내·사이트 원본과
 26개 항목 대응표를 공통 build plan의 release_inputs에서 SHA-256으로 고정합니다.
 config/site-template.conf는 security/site-template.conf로 함께 패키징하고 site_templates에서도 고정하여 테스트/배포가 다른 사이트
-템플릿을 사용하는 것을 막습니다. 요청에 따라 기본 site.conf에는 edoc-dev 사이트 설정이 들어갑니다.
+템플릿을 사용하는 것을 막습니다. 공개 기본 site.conf에는 `example.com`과 예시 경로만 사용합니다.
 공통 nginx.conf와 38개 정책 파일에는 도메인이나 backend가 들어가지 않습니다.
 symlinks.conf의 OS marker만 Linux native 차단과 Windows ACL 안내로 렌더링합니다.
 
