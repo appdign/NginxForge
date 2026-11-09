@@ -265,6 +265,8 @@ http {
                         check(response.getheader('X-Powered-By') is None, 'X-Powered-By leaked')
                         check(response.getheader('X-Forge') == 'yes', 'Arbitrary header modification failed')
                         if operation in ['404', '500']:
+                            check(b'Generic error fixture' in body,
+                                  'Default custom error page was not served: '+repr(body))
                             check(b'nginx' not in body.lower(), 'Error page identifies NGINX')
                         elif operation.startswith('proxy'):
                             check(body == b'backend response', 'Reverse proxy body mismatch')
@@ -290,8 +292,6 @@ http {
             check(b'400 Bad Request' in response_headers and
                   not any(line.lower().startswith(b'server:') for line in response_headers.split(b'\r\n')),
                   'Plain HTTP sent to TLS port exposed server identity: '+repr(response_headers))
-            check(b'Generic error fixture' in malformed,
-                  'Parser error did not use the default custom error page: '+repr(malformed))
             done('http-to-tls-server-header-hidden')
             for version in ['TLSv1.2', 'TLSv1.3']:
                 context = ssl._create_unverified_context()

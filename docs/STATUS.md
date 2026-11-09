@@ -4,7 +4,7 @@
 
 대체 릴리즈 r15는 범용 기본 설정(`example.com`, iframe 추가 허용 없음, 예시 경로)으로 다시 빌드하고 전체 검증하는 중입니다. 새 빌드와 9개 필수 환경 검증이 성공하기 전까지 공개 릴리즈를 발행하지 않습니다.
 
-KISA WEB-16 대응은 `http {}` 전역과 기본 리스너에서 `server_tokens off` 및 `more_clear_headers Server`를 적용합니다. KISA WEB-22 기본 오류 문서도 `nginx.conf`의 `http {}`에 지정하고, 기본 리스너에서 내부 오류 페이지를 제공합니다. 평문 HTTP를 TLS 포트로 보낸 parser 오류에서 헤더와 오류 본문을 검사합니다.
+KISA WEB-16 대응은 `http {}` 전역과 기본 리스너에서 `server_tokens off` 및 `more_clear_headers Server`를 적용합니다. KISA WEB-22 기본 오류 문서도 `nginx.conf`의 `http {}`에 지정하고, 기본 리스너에서 내부 오류 페이지를 제공합니다. 일반 404/500 응답은 배포 오류 문서로 바뀌는지 검사합니다. TLS 포트에 온 평문 HTTP parser 오류는 NGINX가 직접 응답하므로 별도로 Server 헤더 제거를 검사합니다.
 
 KISA 보고서의 WEB-09 서비스 계정과 WEB-26 로그 디렉터리 ACL은 Windows 운영체제 설정입니다. 이 작업 공간에서는 고객 서버에 접속하거나 해당 권한을 바꿀 수 없습니다. WEB-24는 업로드 경로 정보가 없어 수동 검토 상태입니다.
 
