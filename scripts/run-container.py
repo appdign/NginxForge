@@ -22,6 +22,11 @@ if __name__ == '__main__':
     command = ['docker', 'run', '--rm', '--platform', 'linux/' + args.arch,
                '--mount', 'type=bind,source={},target=/repo'.format(ROOT), '--workdir', '/repo']
     if not args.test_os:
+        # Pass the read-only Actions token into the build container so GitHub
+        # release-asset downloads do not share the runner's unauthenticated API limit.
+        token_env = 'GH_TOKEN' if os.environ.get('GH_TOKEN') else 'GITHUB_TOKEN'
+        if os.environ.get(token_env):
+            command += ['--env', token_env]
         epoch = subprocess.check_output(['git', 'show', '-s', '--format=%ct', 'HEAD'], cwd=str(ROOT), text=True).strip()
         command += ['--env', 'SOURCE_DATE_EPOCH=' + epoch, image, '/bin/sh', '-c',
                     'apk add --no-cache bash && bash scripts/build-linux.sh ' + args.arch]
